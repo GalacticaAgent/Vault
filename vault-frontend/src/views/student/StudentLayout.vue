@@ -1,17 +1,28 @@
 <template>
   <div class="student-layout">
-    <router-view />
+    <Header />
+    <div class="main-content">
+      <router-view />
+    </div>
   </div>
 </template>
 
 <script setup>
-// Student Layout component
+import Header from '@/components/common/Header.vue'
 </script>
 
 <style scoped>
 .student-layout {
   width: 100%;
-  height: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  background: #f5f7fa;
 }
 </style>
 
