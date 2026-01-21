@@ -1,96 +1,167 @@
-# Vault/Radiant 数据库设计
+# Vault 数据库文档
 
-## 数据库信息
-- 数据库类型：MySQL 8.0+
-- 字符集：utf8mb4
-- 排序规则：utf8mb4_unicode_ci
+## 📚 概述
 
-## 表结构分类
+Vault 数据库采用 MySQL 8.0+ 设计,为 CS 教学系统提供完整的数据存储和管理方案。数据库包含用户管理、问卷系统、聊天记录、资料管理、代码分析等核心功能模块。
 
-### 用户相关表
-- `user` - 用户表
-  - 存储学生和教师的基本信息
-  - 角色区分（STUDENT/TEACHER）
-  - 密码加密存储
+## 🗂️ SQL 文件说明
 
-### 知识图谱相关表
-- `kg_node` - 知识图谱节点表
-  - 节点类型：资料、个人、代码仓库、问题、答案、知识点
-  - 包含向量数据用于相似度检索
-- `kg_relation` - 知识图谱关系表
-  - 关系类型：属于、引用、掌握、薄弱、相关
-  - 源节点和目标节点关联
+| 文件名 | 说明 | 执行顺序 |
+|--------|------|----------|
+| `00_install_all.sql` | **主安装脚本**，自动执行所有脚本 | 1 |
+| `01_create_database.sql` | 创建数据库和基本配置 | 2 |
+| `02_create_tables.sql` | 创建所有业务表（20张表） | 3 |
+| `03_create_views.sql` | 创建视图（16个视图） | 4 |
+| `04_create_procedures.sql` | 创建存储过程（13个） | 5 |
+| `05_create_triggers.sql` | 创建触发器（12个） | 6 |
+| `06_create_functions.sql` | 创建函数（14个） | 7 |
+| `07_create_indexes.sql` | 创建优化索引 | 8 |
+| `08_insert_initial_data.sql` | 插入初始测试数据 | 9 |
 
-### 对话相关表
-- `chat_session` - 对话会话表
-  - 用户会话管理
-  - 支持会话分享
-- `chat_message` - 对话消息表
-  - 消息角色：用户、助手、系统
-  - 消息内容和附件
+## 🚀 快速安装
 
-### 问卷相关表
-- `questionnaire` - 问卷表
-  - 问卷基本信息
-  - 发布状态管理
-- `question` - 题目表
-  - 题目类型：单选、多选、判断、简答、编程
-  - 题目内容、选项、答案
-- `questionnaire_submission` - 问卷提交表
-  - 学生答题记录
-  - 评分和批改结果
+### 方法一：一键安装（推荐）
 
-### 代码分析相关表
-- `code_repository` - 代码仓库表
-  - GitHub/GitLab 仓库信息
-  - 仓库分析状态
-- `code_analysis_result` - 代码分析结果表
-  - 代码质量分析
-  - Bug 检测结果
-  - AI 生成痕迹检测
+```bash
+cd database
+mysql -u root -p < 00_install_all.sql
+```
 
-### 肖像相关表
-- `student_profile` - 学生肖像表
-  - 知识掌握度
-  - 学习行为数据
-  - 代码能力评分
-- `knowledge_tracing` - 知识追踪表
-  - 知识点掌握度追踪
-  - 历史记录
+### 方法二：逐步执行
 
-### 看板相关表
-- `dashboard_config` - 看板配置表
-  - 用户看板布局配置
-- `custom_card` - 自定义卡片表
-  - 自定义查询卡片
-  - 卡片类型和刷新间隔
+```bash
+mysql -u root -p < 01_create_database.sql
+mysql -u root -p < 02_create_tables.sql
+# ... 依次执行其他文件
+```
 
-## SQL 文件说明
+## 📊 数据库结构
 
-### schema.sql
-完整的数据库建表语句
-- 所有表的创建语句
-- 索引定义
-- 外键约束（如适用）
+### 核心表（20张）
 
-### init_data.sql
-初始化数据
-- 测试用户数据
-- 基础配置数据
+1. **用户相关** (3张): `users`, `students`, `teachers`
+2. **聊天相关** (2张): `chats`, `messages`
+3. **问卷相关** (4张): `questionnaires`, `questions`, `answers`, `questionnaire_submissions`
+4. **资料相关** (1张): `materials`
+5. **代码分析** (2张): `code_repositories`, `code_commits`
+6. **Skills** (1张): `skills`
+7. **看板** (1张): `dashboard_cards`
+8. **系统表** (5张): `files`, `operation_logs`, `error_logs`, `notifications`, `db_version`
+9. **通知** (1张): `notifications`
 
-### migration/
-数据库迁移脚本
-- 版本化的数据库变更
-- 按时间顺序命名
+### 视图（16个）
 
-## 索引策略
-- 主键索引：所有表的 id 字段
-- 唯一索引：用户名、学号、邮箱等唯一字段
-- 普通索引：常用查询字段（user_id, session_id 等）
-- 全文索引：需要全文检索的字段（标题、内容）
-- 复合索引：多字段联合查询
+- `v_user_full_info` - 完整用户信息
+- `v_student_ranking` - 学生排行榜
+- `v_questionnaire_stats` - 问卷统计
+- `v_student_code_quality` - 代码质量
+- `v_student_knowledge_mastery` - 知识点掌握
+- 等...
 
-## 备份策略
-- 每日定时备份
-- 增量备份
-- 备份文件加密存储
+### 存储过程（13个）
+
+- `sp_create_student` - 创建学生
+- `sp_submit_questionnaire` - 提交问卷
+- `sp_get_student_weak_points` - 获取薄弱知识点
+- `sp_get_class_stats` - 班级统计
+- 等...
+
+### 触发器（12个）
+
+- `tr_auto_grade_answer` - 自动评分
+- `tr_increment_question_count` - 提问计数
+- `tr_material_upload_notification` - 资料上传通知
+- 等...
+
+### 函数（14个）
+
+- `fn_calculate_pass_rate` - 计算通过率
+- `fn_get_student_class_rank` - 获取排名
+- `fn_can_access_questionnaire` - 权限检查
+- 等...
+
+## 🔐 测试账号
+
+| 角色 | 用户名 | 密码 |
+|------|--------|------|
+| 管理员 | admin | admin123 |
+| 教师 | teacher001 | teacher123 |
+| 学生 | student001 | student123 |
+
+⚠️ **生产环境请立即修改默认密码！**
+
+## 📝 配置说明
+
+### MySQL 配置
+
+```ini
+[mysqld]
+character-set-server = utf8mb4
+collation-server = utf8mb4_unicode_ci
+innodb_buffer_pool_size = 1G
+max_connections = 200
+default-time-zone = '+08:00'
+```
+
+### Spring Boot 配置
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/vault?useUnicode=true&characterEncoding=utf8mb4
+    username: your_username
+    password: your_password
+```
+
+## 🔍 常用操作
+
+### 查询示例
+
+```sql
+-- 查看学生排行榜
+SELECT * FROM v_student_ranking LIMIT 10;
+
+-- 获取薄弱知识点
+CALL sp_get_student_weak_points(1, 5);
+
+-- 计算问卷通过率
+SELECT fn_calculate_pass_rate(1);
+```
+
+### 维护操作
+
+```sql
+-- 备份数据库
+mysqldump -u root -p vault > backup.sql
+
+-- 清理过期日志（30天）
+CALL sp_clean_expired_data(30);
+
+-- 更新学生统计
+CALL sp_update_all_student_stats();
+```
+
+## 📈 性能优化
+
+- ✅ 完善的索引设计（主键、唯一、外键、复合索引）
+- ✅ 视图简化复杂查询
+- ✅ 存储过程减少网络开销
+- ✅ 触发器实现自动化
+- ✅ 建议使用 Redis 缓存热点数据
+
+## ⚠️ 注意事项
+
+1. 生产环境必须修改默认密码
+2. 配置定期备份策略
+3. 启用慢查询日志监控性能
+4. 定期执行表优化操作
+5. 密码使用 BCrypt 加密存储
+
+## 📧 技术支持
+
+详细文档请查看：
+- `/test/docs/design/数据库设计文档.md`
+- `/test/docs/design/整体架构文档.md`
+
+---
+**Version**: 1.0 | **Date**: 2026-01-21
