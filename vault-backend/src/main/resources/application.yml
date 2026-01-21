@@ -82,13 +82,20 @@ app:
     allowed-headers: "*"
     allow-credentials: true
 
-# Knife4j/Swagger 配置
+# SpringDoc OpenAPI 配置
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+  default-flat-param-object: true
+  
+# Knife4j 配置
 knife4j:
   enable: true
-  openapi:
-    title: Vault API 文档
-    description: Vault/Radiant 智能教学系统 API 接口文档
-    version: 1.0.0
-    contact:
-      name: Vault Team
+  setting:
+    language: zh_cn
+  production: false
 
