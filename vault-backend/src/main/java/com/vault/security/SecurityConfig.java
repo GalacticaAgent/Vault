@@ -3,6 +3,7 @@ package com.vault.security;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -18,9 +19,6 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * Spring Security 配置类
- */
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
@@ -32,9 +30,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            // 禁用CSRF（使用JWT不需要CSRF保护）
             .csrf(AbstractHttpConfigurer::disable)
-            // 配置CORS
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             // 配置会话管理（无状态）
             .sessionManagement(session -> 
@@ -63,26 +59,16 @@ public class SecurityConfig {
                 // 其他请求需要认证
                 .anyRequest().authenticated()
             )
-            // ⭐ 添加JWT认证过滤器到过滤链中
-            // 在 UsernamePasswordAuthenticationFilter 之前执行
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
-    /**
-     * 密码编码器
-     * <p>
-     * 使用 BCrypt 加密算法
-     */
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
-    
-    /**
-     * CORS配置
-     */
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
@@ -91,7 +77,7 @@ public class SecurityConfig {
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
-        
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

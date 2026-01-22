@@ -29,7 +29,7 @@ CREATE TABLE `users` (
     UNIQUE KEY `uk_email` (`email`),
     KEY `idx_role` (`role`),
     KEY `idx_create_time` (`create_time`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
 
 -- 1.2 学生表
 CREATE TABLE `students` (
