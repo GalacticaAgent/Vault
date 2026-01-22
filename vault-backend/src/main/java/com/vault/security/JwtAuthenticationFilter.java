@@ -10,6 +10,7 @@ import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -18,6 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -60,14 +62,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String role = jwtUtil.getRoleFromToken(token);
 
                 // 4. 创建权限列表（Spring Security 要求角色需要 ROLE_ 前缀）
-                SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + role);
+                List<SimpleGrantedAuthority> authorities = List.of(
+                        new SimpleGrantedAuthority(role),
+                        new SimpleGrantedAuthority("ROLE_" + role)
+                );
+                UserDetails userDetails = org.springframework.security.core.userdetails.User
+                        .withUsername(username)
+                        .password("[PROTECTED]")
+                        .authorities(authorities)
+                        .build();
 
                 // 5. 创建 Authentication 对象
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
-                                username,  // principal（主体）- 存储用户名
+                                userDetails,  // principal（主体）- 存储用户详情
                                 null,      // credentials（凭证）- 密码，已验证后不需要
-                                Collections.singletonList(authority)  // authorities（权限）
+                                authorities  // authorities（权限）
                         );
 
                 // 6. ⭐ 关键步骤：将 userId 等信息存入 Authentication 的 details 中
@@ -89,6 +99,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             log.error("JWT认证失败: {}", e.getMessage());
             // 认证失败不抛出异常，继续执行过滤链
             // Spring Security 会检测到没有认证信息，返回 401
+            // Token验证失败，清除认证信息
+            SecurityContextHolder.clearContext();
         }
 
         // 8. 继续执行过滤链
@@ -127,6 +139,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // 公开路径，不需要 JWT 验证
         // 注意：不需要添加 /api 前缀（context-path已处理）
         return path.startsWith("/auth/") ||
+               path.startsWith("/health/") ||
                path.startsWith("/doc.html") ||
                path.startsWith("/swagger-ui") ||
                path.startsWith("/webjars/") ||

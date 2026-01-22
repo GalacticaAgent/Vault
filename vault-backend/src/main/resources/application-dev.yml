@@ -4,10 +4,12 @@ spring:
     username: root
     password: 123456
 
+server:
+  port: 8082
+
 logging:
   level:
     root: INFO
     com.vault: DEBUG
     org.springframework.web: DEBUG
     org.mybatis: DEBUG
-

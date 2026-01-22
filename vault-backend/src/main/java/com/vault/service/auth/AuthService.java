@@ -130,14 +130,14 @@ public class AuthService {
         if (request.getStudentNumber() == null || request.getStudentNumber().isBlank()) {
             throw new BusinessException(400, "学生学号不能为空");
         }
-
+        
         // 检查学号是否已存在
         LambdaQueryWrapper<Student> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Student::getStudentNumber, request.getStudentNumber());
         if (studentMapper.selectCount(wrapper) > 0) {
             throw new BusinessException(400, "学号已存在");
         }
-
+        
         Student student = new Student();
         student.setUserId(userId);
         student.setStudentNumber(request.getStudentNumber());
@@ -146,7 +146,7 @@ public class AuthService {
         student.setClassName(request.getClassName());
         student.setTotalQuestions(0);
         student.setTotalScores(java.math.BigDecimal.ZERO);
-
+        
         studentMapper.insert(student);
     }
     

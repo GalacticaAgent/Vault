@@ -58,7 +58,11 @@ public class Knife4jConfig {
     public GroupedOpenApi teacherApi() {
         return GroupedOpenApi.builder()
                 .group("3. 教师模块")
+<<<<<<< HEAD
                 .pathsToMatch("/teacher/**")
+=======
+                .pathsToMatch("/api/teacher/**", "/teacher/**")
+>>>>>>> bcffb2a (教师看板)
                 .build();
     }
 
