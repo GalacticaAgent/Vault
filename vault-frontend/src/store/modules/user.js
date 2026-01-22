@@ -67,6 +67,16 @@ export const useUserStore = defineStore('user', {
     },
     
     /**
+     * 更新头像
+     */
+    updateAvatar(avatarUrl) {
+      if (this.userInfo) {
+        this.userInfo = { ...this.userInfo, avatar: avatarUrl }
+        setUserInfo(this.userInfo)
+      }
+    },
+
+    /**
      * 登出
      */
     logout() {

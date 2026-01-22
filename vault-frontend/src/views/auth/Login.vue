@@ -73,8 +73,8 @@ const loading = ref(false)
 
 // 登录表单数据
 const loginForm = reactive({
-  username: '',
-  password: ''
+  username: '1',
+  password: '1'
 })
 
 // 表单验证规则
