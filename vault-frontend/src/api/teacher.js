@@ -9,7 +9,7 @@ import request from './request'
  */
 export function getTeacherDashboard() {
   return request({
-    url: '/teacher/dashboard',
+    url: '/api/teacher/dashboard',
     method: 'get'
   })
 }
@@ -19,7 +19,7 @@ export function getTeacherDashboard() {
  */
 export function getStudentAnalysis(studentId) {
   return request({
-    url: `/teacher/students/${studentId}/analysis`,
+    url: `/api/teacher/students/${studentId}/analysis`,
     method: 'get'
   })
 }
@@ -29,9 +29,8 @@ export function getStudentAnalysis(studentId) {
  */
 export function getClassStatistics(params) {
   return request({
-    url: '/teacher/class/statistics',
+    url: '/api/teacher/class/statistics',
     method: 'get',
     params
   })
 }
-
