@@ -5,6 +5,13 @@ spring:
   profiles:
     active: dev
   
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.neo4j.Neo4jDataAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.neo4j.Neo4jRepositoriesAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.neo4j.Neo4jReactiveDataAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.neo4j.Neo4jReactiveRepositoriesAutoConfiguration
+  
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/vault?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
@@ -71,6 +78,38 @@ jwt:
 milvus:
   host: localhost
   port: 19530
+
+# Vault 应用配置
+vault:
+  # AI服务配置 - DeepSeek API
+  ai:
+    # DeepSeek API密钥
+    api-key: sk-63c92674eebe469b8950cc829ede6fd6
+    # DeepSeek API端点
+    api-url: https://api.deepseek.com/chat/completions
+    # DeepSeek模型
+    default-model: deepseek-chat
+    max-tokens: 4096
+    temperature: 0.7
+    timeout: 60000
+  
+  # Skill系统配置
+  skill:
+    directory: demo_skills  # Skills目录路径（相对于项目根目录）
+    router:
+      use-llm: true  # 是否使用LLM进行智能路由
+      max-skills: 3  # 最多选择的技能数量
+      max-retries: 2  # LLM路由最大重试次数
+    executor:
+      timeout: 30  # Skill执行超时时间（秒）
+      retry-enabled: true  # 是否启用重试
+      max-retries: 2  # 步骤执行重试次数
+  
+  # 文件上传配置
+  file:
+    upload-dir: uploads  # 文件上传目录
+    max-size: 10485760  # 最大文件大小（10MB）
+    allowed-types: pdf,java,py,js,ts,md,txt  # 允许的文件类型
 
 # 应用配置
 app:
