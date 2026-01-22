@@ -1,49 +1,125 @@
-# Vault/Radiant 前端项目
+# Vault Frontend
 
-## 项目简介
-基于 Vue.js 3.x 的前端应用，为 Vault/Radiant 智能教学系统提供用户界面。
+Vault 智能教学系统前端应用
 
 ## 技术栈
+
 - Vue.js 3.x
-- Element Plus (UI 组件库)
-- Vue Router (路由管理)
-- Pinia (状态管理)
-- Vite 4.x (构建工具)
-- Axios (HTTP 客户端)
-- Markdown-it (Markdown 渲染)
-- ECharts (数据可视化)
+- Element Plus
+- Vue Router
+- Pinia
+- Vite 5.x
+- Axios
+- Markdown-it
+- ECharts
 
-## 核心功能
-### 学生端
-- 智能问答对话
-- 问卷答题
-- 个人学习肖像查看
-- 代码仓库提交
-- 可定制学习看板
+## 快速开始
 
-### 教师端
-- 智能分析对话
-- 问卷创建与管理
-- 学习资料管理
-- 学生肖像分析
-- 班级统计分析
-- 可定制分析看板
+### 1. 环境要求
 
-## 开发环境要求
 - Node.js 16+
 - npm 或 pnpm
 
-## 快速开始
+### 2. 安装依赖
+
 ```bash
-# 安装依赖
 npm install
-
-# 启动开发服务器
-npm run dev
-
-# 构建生产版本
-npm run build
+# 或
+pnpm install
 ```
 
-## 项目结构说明
-详见各子目录的 README.md 文件
+### 3. 运行开发服务器
+
+```bash
+npm run dev
+# 或
+pnpm dev
+```
+
+访问：http://localhost:5173
+
+### 4. 构建生产版本
+
+```bash
+npm run build
+# 或
+pnpm build
+```
+
+## 项目结构
+
+```
+vault-frontend/
+├── src/
+│   ├── main.js                    # 应用入口
+│   ├── App.vue                    # 根组件
+│   ├── assets/                    # 静态资源
+│   │   └── styles/               # 全局样式
+│   ├── components/                # 组件
+│   │   ├── common/               # 通用组件
+│   │   ├── dashboard/            # 看板组件
+│   │   ├── chat/                 # 聊天组件
+│   │   ├── questionnaire/        # 问卷组件
+│   │   └── skill/                # 技能组件
+│   ├── views/                     # 页面
+│   │   ├── auth/                 # 认证页面
+│   │   ├── common/               # 通用页面
+│   │   ├── student/              # 学生页面
+│   │   └── teacher/              # 教师页面
+│   ├── router/                    # 路由配置
+│   ├── store/                     # 状态管理
+│   │   └── modules/              # 状态模块
+│   ├── api/                       # API接口
+│   ├── utils/                     # 工具函数
+│   └── config/                    # 配置文件
+├── index.html                     # HTML入口
+├── vite.config.js                # Vite配置
+└── package.json                   # 依赖配置
+```
+
+## 功能模块
+
+### 学生端
+- 登录/注册
+- 个人看板
+- AI对话
+- 问卷填写
+- 个人资料
+
+### 教师端
+- 登录/注册
+- 教师看板
+- AI对话
+- 问卷生成
+- 材料上传
+- 技能管理
+- 学生分析
+
+## API配置
+
+API代理配置在 `vite.config.js` 中：
+
+```javascript
+server: {
+  proxy: {
+    '/api': {
+      target: 'http://localhost:8080',
+      changeOrigin: true
+    }
+  }
+}
+```
+
+## 测试账号
+
+### 学生账号
+- 用户名：student1
+- 密码：password123
+
+### 教师账号
+- 用户名：teacher1
+- 密码：password123
+
+## 许可证
+
+MIT License
