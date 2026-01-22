@@ -1,17 +1,51 @@
 package com.vault.entity.mysql;
 
 import com.baomidou.mybatisplus.annotation.*;
+<<<<<<< HEAD
+import lombok.Data;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+=======
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
 import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+>>>>>>> a7cea79f21da3f3fdf35017c3222bcd9e3417aed
 
 /**
  * 题目实体类
  */
 @Data
+<<<<<<< HEAD
+@TableName("questions")
+public class Question {
+
+    @TableId(type = IdType.AUTO)
+    private Long id;
+
+    private Long questionnaireId;
+
+    private Integer questionOrder;
+
+    private String type;
+
+    private String content;
+
+    private String options;
+
+    private String correctAnswer;
+
+    private String knowledgePoint;
+
+    private String difficulty;
+
+    private BigDecimal score;
+
+    private String explanation;
+
+=======
 @TableName(value = "questions", autoResultMap = true)
 public class Question {
 
@@ -75,6 +109,7 @@ public class Question {
     /**
      * 创建时间
      */
+>>>>>>> a7cea79f21da3f3fdf35017c3222bcd9e3417aed
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 }

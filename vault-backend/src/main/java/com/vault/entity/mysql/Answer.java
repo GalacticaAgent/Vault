@@ -2,7 +2,10 @@ package com.vault.entity.mysql;
 
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
+<<<<<<< HEAD
+=======
 
+>>>>>>> a7cea79f21da3f3fdf35017c3222bcd9e3417aed
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -13,6 +16,27 @@ import java.time.LocalDateTime;
 @TableName("answers")
 public class Answer {
 
+<<<<<<< HEAD
+    @TableId(type = IdType.AUTO)
+    private Long id;
+
+    private Long questionnaireId;
+
+    private Long questionId;
+
+    private Long studentId;
+
+    private String answerContent;
+
+    private Boolean isCorrect;
+
+    private BigDecimal score;
+
+    private String feedback;
+
+    private Integer timeSpent;
+
+=======
     /**
      * 答案ID
      */
@@ -62,6 +86,7 @@ public class Answer {
     /**
      * 创建时间
      */
+>>>>>>> a7cea79f21da3f3fdf35017c3222bcd9e3417aed
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 }
