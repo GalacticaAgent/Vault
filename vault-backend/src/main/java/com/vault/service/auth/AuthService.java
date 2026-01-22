@@ -27,12 +27,12 @@ import java.time.LocalDateTime;
 @Service
 @RequiredArgsConstructor
 public class AuthService {
-    
+
     private final UserMapper userMapper;
     private final StudentMapper studentMapper;
     private final TeacherMapper teacherMapper;
     private final JwtUtil jwtUtil;
-    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
     
     /**
      * 用户登录
@@ -53,7 +53,7 @@ public class AuthService {
         }
         
         // 检查用户是否启用
-        if (!user.getEnabled()) {
+        if (user.getEnabled() == null || !user.getEnabled()) {
             throw new BusinessException(403, "账号已被禁用，请联系管理员");
         }
         
@@ -130,14 +130,14 @@ public class AuthService {
         if (request.getStudentNumber() == null || request.getStudentNumber().isBlank()) {
             throw new BusinessException(400, "学生学号不能为空");
         }
-        
+
         // 检查学号是否已存在
         LambdaQueryWrapper<Student> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Student::getStudentNumber, request.getStudentNumber());
         if (studentMapper.selectCount(wrapper) > 0) {
             throw new BusinessException(400, "学号已存在");
         }
-        
+
         Student student = new Student();
         student.setUserId(userId);
         student.setStudentNumber(request.getStudentNumber());
@@ -145,7 +145,8 @@ public class AuthService {
         student.setGrade(request.getGrade());
         student.setClassName(request.getClassName());
         student.setTotalQuestions(0);
-        
+        student.setTotalScores(java.math.BigDecimal.ZERO);
+
         studentMapper.insert(student);
     }
     
