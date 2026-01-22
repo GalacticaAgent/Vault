@@ -42,6 +42,10 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // 允许匿名访问的认证端点（登录、注册）
                 .requestMatchers("/auth/**").permitAll()
+                // Knife4j 和 Swagger 相关路径
+                .requestMatchers("/doc.html").permitAll()
+                .requestMatchers("/swagger-ui.html").permitAll()
+                .requestMatchers("/swagger-ui/**").permitAll()
                 // Knife4j 和 Swagger 相关路径（context-path已配置为/api，这里使用相对路径）
                 .requestMatchers("/doc.html", "/doc.html/**").permitAll()
                 .requestMatchers("/swagger-ui.html", "/swagger-ui/**").permitAll()
