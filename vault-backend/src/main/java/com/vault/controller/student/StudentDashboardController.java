@@ -2,7 +2,9 @@ package com.vault.controller.student;
 
 import com.vault.common.Result;
 import com.vault.dto.request.CreateCardRequest;
+import com.vault.dto.response.DashboardCardResponse;
 import com.vault.dto.response.DashboardResponse;
+import com.vault.util.SecurityUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -11,9 +13,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * 学生看板控制器
- *
+ * <p>
  * 学生看板是一个可视化的数据展示页面，就像汽车的仪表盘一样，
  * 让学生一眼就能看到自己的学习情况和重要信息。
  *
@@ -45,12 +49,11 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 @Tag(name = "学生看板管理", description = "学生个人看板数据统计与自定义卡片管理相关接口")
 @RestController
-@RequestMapping("/api/student/dashboard")
+@RequestMapping("/student/dashboard")
 @RequiredArgsConstructor
 public class StudentDashboardController {
 
-    // 注入学生看板服务（待实现）
-    // private final StudentDashboardService studentDashboardService;
+    private final com.vault.service.student.DashboardService dashboardService;
 
     /**
      * 获取学生看板数据
@@ -120,22 +123,12 @@ public class StudentDashboardController {
         try {
             log.info("开始获取学生看板数据");
 
-            // TODO: 从Spring Security上下文获取当前登录的学生ID
-            // Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            // Long studentId = ((UserDetails) authentication.getPrincipal()).getUserId();
+            // 从Spring Security上下文获取当前登录的用户ID
+            Long userId = SecurityUtil.getCurrentUserId();
+            log.info("当前登录用户ID: {}", userId);
 
-            // TODO: 调用服务层获取看板数据
-            // 服务层需要执行以下操作：
-            // 1. 从students表查询学生基本信息（总提问数、总分数等）
-            // 2. 从questionnaire_submissions表统计问卷完成情况
-            // 3. 从answers表分析答题详情和分数分布
-            // 4. 从chats表统计提问次数和互动数据
-            // 5. 从dashboard_cards表查询学生的自定义卡片
-            // 6. 从materials表查询可用的学习资料
-            // DashboardResponse response = studentDashboardService.getDashboardData(studentId);
-
-            // 临时返回示例数据结构（实际开发中需要从数据库查询）
-            DashboardResponse response = buildSampleDashboardData();
+            // 调用服务层获取看板数据
+            DashboardResponse response = dashboardService.getDashboardData(userId);
 
             log.info("成功获取学生看板数据");
             return Result.success("获取看板数据成功", response);
@@ -233,27 +226,12 @@ public class StudentDashboardController {
         try {
             log.info("开始添加自定义看板卡片，标题：{}", request.getTitle());
 
-            // TODO: 从Spring Security上下文获取当前登录的学生用户ID
-            // Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            // Long userId = ((UserDetails) authentication.getPrincipal()).getUserId();
+            // 从Spring Security上下文获取当前登录的学生用户ID
+            Long userId = SecurityUtil.getCurrentUserId();
+            log.info("当前登录用户ID: {}", userId);
 
-            // TODO: 验证请求参数
-            // 1. 检查卡片标题是否为空
-            // 2. 检查查询描述是否合法
-            // 3. 验证刷新间隔是否在合理范围内（避免过于频繁的刷新）
-            // 4. 检查用户的卡片数量是否超过限制（例如最多20个）
-
-            // TODO: 调用服务层添加卡片
-            // 服务层需要执行以下操作：
-            // 1. 创建DashboardCard实体对象
-            // 2. 设置user_id为当前用户ID
-            // 3. 根据查询描述生成初始的卡片内容
-            // 4. 保存到dashboard_cards表
-            // 5. 返回新创建的卡片ID
-            // Long cardId = studentDashboardService.addDashboardCard(userId, request);
-
-            // 临时返回模拟的卡片ID
-            Long cardId = System.currentTimeMillis();
+            // 调用服务层添加卡片
+            Long cardId = dashboardService.addDashboardCard(userId, request);
 
             log.info("成功添加自定义看板卡片，卡片ID：{}", cardId);
             return Result.success("添加卡片成功", cardId);
@@ -289,17 +267,12 @@ public class StudentDashboardController {
         try {
             log.info("开始删除看板卡片，卡片ID：{}", id);
 
-            // TODO: 从Spring Security上下文获取当前登录的学生用户ID
-            // Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            // Long userId = ((UserDetails) authentication.getPrincipal()).getUserId();
+            // 从Spring Security上下文获取当前登录的学生用户ID
+            Long userId = SecurityUtil.getCurrentUserId();
+            log.info("当前登录用户ID: {}", userId);
 
-            // TODO: 调用服务层删除卡片
-            // 服务层需要执行以下操作：
-            // 1. 查询dashboard_cards表，验证卡片是否存在
-            // 2. 验证卡片的user_id是否与当前用户ID一致
-            // 3. 如果验证通过，执行删除操作
-            // 4. 如果卡片不存在或不属于当前用户，抛出BusinessException
-            // studentDashboardService.deleteDashboardCard(userId, id);
+            // 调用服务层删除卡片
+            dashboardService.deleteDashboardCard(userId, id);
 
             log.info("成功删除看板卡片，卡片ID：{}", id);
             return Result.success("删除卡片成功", null);
@@ -329,12 +302,12 @@ public class StudentDashboardController {
         try {
             log.info("开始更新看板卡片，卡片ID：{}，新标题：{}", id, request.getTitle());
 
-            // TODO: 从Spring Security上下文获取当前登录的学生用户ID
-            // Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            // Long userId = ((UserDetails) authentication.getPrincipal()).getUserId();
+            // 从Spring Security上下文获取当前登录的学生用户ID
+            Long userId = SecurityUtil.getCurrentUserId();
+            log.info("当前登录用户ID: {}", userId);
 
-            // TODO: 调用服务层更新卡片
-            // studentDashboardService.updateDashboardCard(userId, id, request);
+            // 调用服务层更新卡片
+            dashboardService.updateDashboardCard(userId, id, request);
 
             log.info("成功更新看板卡片，卡片ID：{}", id);
             return Result.success("更新卡片成功", null);
@@ -355,19 +328,19 @@ public class StudentDashboardController {
         description = "获取当前学生的所有自定义看板卡片，按显示顺序排列"
     )
     @GetMapping("/cards")
-    public Result<?> getDashboardCards() {
+    public Result<List<DashboardCardResponse>> getDashboardCards() {
         try {
             log.info("开始获取看板卡片列表");
 
-            // TODO: 从Spring Security上下文获取当前登录的学生用户ID
-            // Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            // Long userId = ((UserDetails) authentication.getPrincipal()).getUserId();
+            // 从Spring Security上下文获取当前登录的学生用户ID
+            Long userId = SecurityUtil.getCurrentUserId();
+            log.info("当前登录用户ID: {}", userId);
 
-            // TODO: 调用服务层获取卡片列表
-            // List<DashboardCardResponse> cards = studentDashboardService.getDashboardCards(userId);
+            // 调用服务层获取卡片列表
+            List<DashboardCardResponse> cards = dashboardService.getDashboardCards(userId);
 
-            log.info("成功获取看板卡片列表");
-            return Result.success("获取卡片列表成功", null);
+            log.info("成功获取看板卡片列表，共{}个卡片", cards.size());
+            return Result.success("获取卡片列表成功", cards);
 
         } catch (Exception e) {
             log.error("获取看板卡片列表失败", e);
@@ -386,21 +359,21 @@ public class StudentDashboardController {
         description = "手动触发指定卡片的数据刷新，重新执行查询并更新内容"
     )
     @PostMapping("/card/{id}/refresh")
-    public Result<?> refreshDashboardCard(
+    public Result<DashboardCardResponse> refreshDashboardCard(
             @Parameter(description = "卡片ID", required = true, example = "1")
             @PathVariable Long id) {
         try {
             log.info("开始刷新看板卡片数据，卡片ID：{}", id);
 
-            // TODO: 从Spring Security上下文获取当前登录的学生用户ID
-            // Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            // Long userId = ((UserDetails) authentication.getPrincipal()).getUserId();
+            // 从Spring Security上下文获取当前登录的学生用户ID
+            Long userId = SecurityUtil.getCurrentUserId();
+            log.info("当前登录用户ID: {}", userId);
 
-            // TODO: 调用服务层刷新卡片数据
-            // DashboardCardResponse cardData = studentDashboardService.refreshDashboardCard(userId, id);
+            // 调用服务层刷新卡片数据
+            DashboardCardResponse cardData = dashboardService.refreshDashboardCard(userId, id);
 
             log.info("成功刷新看板卡片数据，卡片ID：{}", id);
-            return Result.success("刷新卡片数据成功", null);
+            return Result.success("刷新卡片数据成功", cardData);
 
         } catch (Exception e) {
             log.error("刷新看板卡片数据失败，卡片ID：{}", id, e);
