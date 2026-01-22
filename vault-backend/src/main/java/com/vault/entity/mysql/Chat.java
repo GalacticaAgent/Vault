@@ -2,6 +2,7 @@ package com.vault.entity.mysql;
 
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
+
 import java.time.LocalDateTime;
 
 /**
@@ -19,14 +20,14 @@ public class Chat {
     private Long id;
     
     /**
-     * 会话标题（自动从第一条消息生成或用户自定义）
-     */
-    private String title;
-    
-    /**
      * 用户ID
      */
     private Long userId;
+    
+    /**
+     * 会话标题（自动从第一条消息生成或用户自定义）
+     */
+    private String title;
     
     /**
      * 会话状态：active-活跃，archived-归档，deleted-已删除
@@ -53,6 +54,16 @@ public class Chat {
      * 是否置顶
      */
     private Boolean pinned;
+    
+    /**
+     * 是否分享
+     */
+    private Boolean shared;
+
+    /**
+     * 分享ID
+     */
+    private String shareId;
     
     /**
      * 创建时间

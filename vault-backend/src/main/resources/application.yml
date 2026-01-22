@@ -111,10 +111,19 @@ vault:
     max-size: 10485760  # 最大文件大小（10MB）
     allowed-types: pdf,java,py,js,ts,md,txt  # 允许的文件类型
 
+# DeepSeek AI 配置
+deepseek:
+  api-key: ${DEEPSEEK_API_KEY:}
+  api-url: https://api.deepseek.com/chat/completions
+  model: deepseek-chat
+  max-tokens: 4000
+  temperature: 0.7
+  timeout: 60000
+
 # 应用配置
 app:
   cors:
-    allowed-origins: 
+    allowed-origins:
       - http://localhost:5173
       - http://localhost:3000
     allowed-methods: GET,POST,PUT,DELETE,OPTIONS
