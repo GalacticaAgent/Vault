@@ -2,6 +2,7 @@ package com.vault.service.questionnaire;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vault.dto.QuestionOption;
 import com.vault.dto.request.CreateQuestionnaireRequest;
 import com.vault.dto.request.GenerateQuestionnaireRequest;
 import com.vault.dto.response.QuestionnaireDetailResponse;
@@ -137,7 +138,13 @@ public class QuestionGeneratorService {
                 // 处理 options（可能是 List 或 null）
                 Object optionsObj = raw.get("options");
                 if (optionsObj instanceof List) {
-                    question.setOptions((List<String>) optionsObj);
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, String>> optionsList = (List<Map<String, String>>) optionsObj;
+                    List<QuestionOption> questionOptions = new ArrayList<>();
+                    for (Map<String, String> opt : optionsList) {
+                        questionOptions.add(new QuestionOption(opt.get("key"), opt.get("value")));
+                    }
+                    question.setOptions(questionOptions);
                 }
 
                 question.setCorrectAnswer((String) raw.get("correctAnswer"));

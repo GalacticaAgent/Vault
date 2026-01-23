@@ -62,12 +62,6 @@
             <div class="user-role">学生</div>
           </div>
         </div>
-        
-        <div class="console-log">
-          <el-icon><Filter /></el-icon>
-          <span v-show="!isCollapsed">控制台日志</span>
-          <span class="log-count" v-show="!isCollapsed">0</span>
-        </div>
       </div>
     </aside>
 
@@ -88,18 +82,19 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { 
   Grid, 
   ChatDotSquare, 
   Document, 
   Fold, 
   Expand,
-  Search, 
-  Filter 
+  Search
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/store/modules/user'
 
+const router = useRouter()
 const userStore = useUserStore()
 const isCollapsed = ref(false)
 const avatarInput = ref(null)
@@ -126,8 +121,9 @@ const handleAvatarCommand = (command) => {
     }, 0)
   } else if (command === 'logout') {
     userStore.logout()
-    ElMessage.info('正在退出...')
-    // 实际项目中应跳转到登录页
+    ElMessage.success('退出成功')
+    // 跳转到登录页
+    router.push('/login')
   }
 }
 

@@ -259,6 +259,55 @@ public class QuestionnaireService {
             .collect(Collectors.toList());
     }
 
+    /**
+     * 获取学生待完成的问卷列表
+     */
+    public List<QuestionnaireListResponse> getPendingQuestionnaires(Long studentId) {
+        // 1. 查询所有已发布的问卷
+        LambdaQueryWrapper<Questionnaire> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Questionnaire::getStatus, "PUBLISHED")
+               .orderByAsc(Questionnaire::getDeadline);
+        List<Questionnaire> allPublished = questionnaireMapper.selectList(wrapper);
+
+        // 2. 过滤出学生未提交的问卷
+        List<QuestionnaireListResponse> result = new ArrayList<>();
+        for (Questionnaire q : allPublished) {
+            // 检查是否已提交
+            LambdaQueryWrapper<QuestionnaireSubmission> submissionWrapper = new LambdaQueryWrapper<>();
+            submissionWrapper.eq(QuestionnaireSubmission::getQuestionnaireId, q.getId())
+                           .eq(QuestionnaireSubmission::getStudentId, studentId);
+            long count = submissionMapper.selectCount(submissionWrapper);
+            
+            if (count == 0) {
+                result.add(buildQuestionnaireListResponse(q));
+            }
+        }
+        
+        return result;
+    }
+
+    /**
+     * 获取学生已完成的问卷列表
+     */
+    public List<QuestionnaireListResponse> getCompletedQuestionnaires(Long studentId) {
+        // 1. 查询该学生的所有提交记录
+        LambdaQueryWrapper<QuestionnaireSubmission> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(QuestionnaireSubmission::getStudentId, studentId)
+               .orderByDesc(QuestionnaireSubmission::getSubmitTime);
+        List<QuestionnaireSubmission> submissions = submissionMapper.selectList(wrapper);
+
+        // 2. 获取对应的问卷信息
+        List<QuestionnaireListResponse> result = new ArrayList<>();
+        for (QuestionnaireSubmission submission : submissions) {
+            Questionnaire q = questionnaireMapper.selectById(submission.getQuestionnaireId());
+            if (q != null) {
+                result.add(buildQuestionnaireListResponse(q));
+            }
+        }
+        
+        return result;
+    }
+
     private QuestionnaireListResponse buildQuestionnaireListResponse(Questionnaire q) {
         // 统计题目数量
         LambdaQueryWrapper<Question> questionWrapper = new LambdaQueryWrapper<>();
@@ -277,6 +326,7 @@ public class QuestionnaireService {
             .status(q.getStatus())
             .questionCount((int) questionCount)
             .totalScore(q.getTotalScore())
+            .timeLimit(q.getTimeLimit())
             .deadline(q.getDeadline())
             .submittedCount((int) submittedCount)
             .targetStudentCount(q.getTargetStudents() != null ? q.getTargetStudents().size() : 0)

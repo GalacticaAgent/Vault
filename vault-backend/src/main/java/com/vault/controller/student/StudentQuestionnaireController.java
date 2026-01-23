@@ -1,9 +1,12 @@
 package com.vault.controller.student;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.vault.common.Result;
 import com.vault.dto.request.SubmitQuestionnaireRequest;
 import com.vault.dto.response.QuestionnaireDetailResponse;
 import com.vault.dto.response.QuestionnaireListResponse;
+import com.vault.entity.mysql.Student;
+import com.vault.mapper.StudentMapper;
 import com.vault.service.questionnaire.QuestionnaireService;
 import com.vault.util.SecurityUtil;
 import io.swagger.v3.oas.annotations.Operation;
@@ -44,6 +47,7 @@ import java.util.List;
 public class StudentQuestionnaireController {
     
     private final QuestionnaireService questionnaireService;
+    private final StudentMapper studentMapper;
     
     /**
      * 获取待完成的问卷列表
@@ -54,12 +58,20 @@ public class StudentQuestionnaireController {
     @GetMapping("/pending")
     public Result<List<QuestionnaireListResponse>> getPendingQuestionnaires(
             @Parameter(description = "课程ID，可选") @RequestParam(required = false) Long courseId) {
-        Long studentId = SecurityUtil.getCurrentUserId();
-        log.info("学生 {} 获取待完成问卷，课程ID：{}", studentId, courseId);
+        Long userId = SecurityUtil.getCurrentUserId();
         
-        // TODO: 实现获取待完成问卷逻辑
-        // List<QuestionnaireListResponse> questionnaires = questionnaireService.getPendingQuestionnaires(studentId, courseId);
-        return Result.success(List.of());
+        // 获取学生ID
+        LambdaQueryWrapper<Student> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Student::getUserId, userId);
+        Student student = studentMapper.selectOne(wrapper);
+        if (student == null) {
+            return Result.error("学生信息不存在");
+        }
+        
+        log.info("学生 {} 获取待完成问卷，课程ID：{}", student.getId(), courseId);
+        
+        List<QuestionnaireListResponse> questionnaires = questionnaireService.getPendingQuestionnaires(student.getId());
+        return Result.success(questionnaires);
     }
     
     /**
@@ -73,12 +85,20 @@ public class StudentQuestionnaireController {
             @Parameter(description = "课程ID，可选") @RequestParam(required = false) Long courseId,
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer pageSize) {
-        Long studentId = SecurityUtil.getCurrentUserId();
-        log.info("学生 {} 获取已完成问卷，课程ID：{}，页码：{}", studentId, courseId, page);
+        Long userId = SecurityUtil.getCurrentUserId();
         
-        // TODO: 实现获取已完成问卷逻辑（支持分页）
-        // List<QuestionnaireListResponse> questionnaires = questionnaireService.getCompletedQuestionnaires(studentId, courseId, page, pageSize);
-        return Result.success(List.of());
+        // 获取学生ID
+        LambdaQueryWrapper<Student> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Student::getUserId, userId);
+        Student student = studentMapper.selectOne(wrapper);
+        if (student == null) {
+            return Result.error("学生信息不存在");
+        }
+        
+        log.info("学生 {} 获取已完成问卷，课程ID：{}，页码：{}", student.getId(), courseId, page);
+        
+        List<QuestionnaireListResponse> questionnaires = questionnaireService.getCompletedQuestionnaires(student.getId());
+        return Result.success(questionnaires);
     }
     
     /**

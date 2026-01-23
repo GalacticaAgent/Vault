@@ -30,18 +30,6 @@
     <div class="content-area" v-if="!currentQuiz">
       <!-- Classroom Tests Tab -->
       <template v-if="currentTab === 'classroom'">
-        <!-- Notification Banner -->
-        <div class="notification-banner">
-          <div class="banner-content">
-            <el-icon class="warning-icon"><WarningFilled /></el-icon>
-            <div class="banner-text">
-              <span class="banner-title">新的课堂测验已发布</span>
-              <span class="banner-desc">🚀 进程通信专题测验 - 6题, 25分钟 刚刚发布</span>
-            </div>
-          </div>
-          <el-icon class="close-icon"><Close /></el-icon>
-        </div>
-
         <!-- Info Box -->
         <div class="info-box">
           <div class="info-header">
@@ -53,53 +41,78 @@
         </div>
 
         <!-- Quiz Cards -->
-        <div class="quiz-list">
-          <!-- Card 1: In Progress -->
-          <div class="quiz-card active">
+        <div class="quiz-list" v-loading="loading">
+          <!-- 待完成的问卷 -->
+          <div 
+            v-for="quiz in pendingQuizzes" 
+            :key="quiz.id" 
+            class="quiz-card"
+            :class="{ active: quiz.hasProgress }"
+          >
             <div class="card-top">
               <div class="quiz-main-info">
                 <div class="quiz-title-row">
-                  <h3>Lab3随堂测验-进程调度</h3>
-                  <span class="status-tag process">进行中</span>
+                  <h3>{{ quiz.title }}</h3>
+                  <span class="status-tag process">{{ quiz.hasProgress ? '进行中' : '未开始' }}</span>
                 </div>
                 <div class="quiz-meta">
-                  <span><el-icon><Document /></el-icon> 3 题</span>
-                  <span><el-icon><Timer /></el-icon> 30 分钟</span>
-                  <span class="difficulty medium">中等</span>
+                  <span><el-icon><Document /></el-icon> {{ quiz.questionCount || '-' }} 题</span>
+                  <span><el-icon><Timer /></el-icon> {{ quiz.timeLimit }} 分钟</span>
+                  <span class="difficulty medium">总分: {{ quiz.totalScore }}分</span>
                 </div>
               </div>
-              <div class="timer-display">15:23</div>
+              <div class="timer-display" v-if="quiz.remainingTime">{{ formatTime(quiz.remainingTime) }}</div>
             </div>
             
-            <div class="quiz-progress-section">
+            <div class="quiz-progress-section" v-if="quiz.hasProgress">
               <div class="progress-label">剩余时间</div>
-              <el-progress :percentage="50" :show-text="false" color="#f97316" :stroke-width="8" />
+              <el-progress 
+                :percentage="calculateTimeProgress(quiz)" 
+                :show-text="false" 
+                color="#f97316" 
+                :stroke-width="8" 
+              />
             </div>
 
-            <el-button class="action-btn orange" round @click="startQuiz(1)">继续作答</el-button>
+            <el-button 
+              class="action-btn orange" 
+              round 
+              @click="startQuiz(quiz.id)"
+            >
+              {{ quiz.hasProgress ? '继续作答' : '开始答题' }}
+            </el-button>
           </div>
 
-          <!-- Card 2: Completed -->
-          <div class="quiz-card">
+          <!-- 已完成的问卷 -->
+          <div 
+            v-for="quiz in completedQuizzes" 
+            :key="quiz.id" 
+            class="quiz-card"
+          >
             <div class="card-top">
               <div class="quiz-main-info">
                 <div class="quiz-title-row">
-                  <h3>虚拟内存快速测验</h3>
+                  <h3>{{ quiz.title }}</h3>
                   <span class="status-tag completed">已完成</span>
                 </div>
                 <div class="quiz-meta">
-                  <span><el-icon><Document /></el-icon> 2 题</span>
-                  <span><el-icon><Timer /></el-icon> 20 分钟</span>
-                  <span class="difficulty hard">困难</span>
+                  <span><el-icon><Document /></el-icon> {{ quiz.questionCount || '-' }} 题</span>
+                  <span><el-icon><Timer /></el-icon> {{ quiz.timeLimit }} 分钟</span>
+                  <span class="difficulty hard">总分: {{ quiz.totalScore }}分</span>
                 </div>
               </div>
               <div class="score-display">
-                <span class="score-val">100</span>
+                <span class="score-val">{{ quiz.score || '-' }}</span>
                 <span class="score-unit">分</span>
               </div>
             </div>
 
-            <el-button class="action-btn purple" round>查看详情</el-button>
+            <el-button class="action-btn purple" round @click="viewReport(quiz.id)">查看详情</el-button>
+          </div>
+
+          <!-- 空状态 -->
+          <div v-if="pendingQuizzes.length === 0 && completedQuizzes.length === 0 && !loading" class="empty-state">
+            <p>暂无问卷</p>
           </div>
         </div>
       </template>
@@ -115,43 +128,59 @@
           </div>
         </div>
 
-        <div class="quiz-list">
-          <div class="quiz-card">
+        <!-- 复用课堂检测的数据 -->
+        <div class="quiz-list" v-loading="loading">
+          <!-- 待完成的问卷 -->
+          <div 
+            v-for="quiz in pendingQuizzes" 
+            :key="quiz.id" 
+            class="quiz-card"
+          >
             <div class="card-top">
               <div class="quiz-main-info">
                 <div class="quiz-title-row">
-                  <h3>第三章：内存管理作业</h3>
+                  <h3>{{ quiz.title }}</h3>
                   <span class="status-tag pending">未开始</span>
                 </div>
                 <div class="quiz-meta">
-                  <span><el-icon><Document /></el-icon> 10 题</span>
-                  <span>截止：2023-11-20</span>
-                  <span class="difficulty hard">困难</span>
+                  <span><el-icon><Document /></el-icon> {{ quiz.questionCount || '-' }} 题</span>
+                  <span>截止：{{ quiz.deadline ? new Date(quiz.deadline).toLocaleDateString() : '-' }}</span>
+                  <span class="difficulty medium">总分: {{ quiz.totalScore }}分</span>
                 </div>
               </div>
             </div>
-            <el-button class="action-btn blue" round @click="startQuiz(2)">开始作业</el-button>
+            <el-button class="action-btn blue" round @click="startQuiz(quiz.id)">开始作业</el-button>
           </div>
 
-          <div class="quiz-card">
+          <!-- 已完成的问卷 -->
+          <div 
+            v-for="quiz in completedQuizzes" 
+            :key="quiz.id" 
+            class="quiz-card"
+          >
             <div class="card-top">
               <div class="quiz-main-info">
                 <div class="quiz-title-row">
-                  <h3>第二章：进程控制作业</h3>
+                  <h3>{{ quiz.title }}</h3>
                   <span class="status-tag completed">已批改</span>
                 </div>
                 <div class="quiz-meta">
-                  <span><el-icon><Document /></el-icon> 8 题</span>
-                  <span>提交：2023-11-10</span>
-                  <span class="difficulty medium">中等</span>
+                  <span><el-icon><Document /></el-icon> {{ quiz.questionCount || '-' }} 题</span>
+                  <span>提交：{{ quiz.createTime ? new Date(quiz.createTime).toLocaleDateString() : '-' }}</span>
+                  <span class="difficulty medium">总分: {{ quiz.totalScore }}分</span>
                 </div>
               </div>
               <div class="score-display">
-                <span class="score-val">95</span>
+                <span class="score-val">{{ quiz.score || '-' }}</span>
                 <span class="score-unit">分</span>
               </div>
             </div>
-            <el-button class="action-btn purple" round>查看解析</el-button>
+            <el-button class="action-btn purple" round @click="viewReport(quiz.id)">查看解析</el-button>
+          </div>
+
+          <!-- 空状态 -->
+          <div v-if="pendingQuizzes.length === 0 && completedQuizzes.length === 0 && !loading" class="empty-state">
+            <p>暂无作业</p>
           </div>
         </div>
       </template>
@@ -167,38 +196,59 @@
           </div>
         </div>
 
-        <div class="quiz-list">
-          <div class="quiz-card active">
+        <!-- 复用课堂检测的数据 -->
+        <div class="quiz-list" v-loading="loading">
+          <!-- 待完成的问卷 -->
+          <div 
+            v-for="quiz in pendingQuizzes" 
+            :key="quiz.id" 
+            class="quiz-card"
+            :class="{ active: quiz.hasProgress }"
+          >
             <div class="card-top">
               <div class="quiz-main-info">
                 <div class="quiz-title-row">
-                  <h3>每日一练：死锁预防</h3>
+                  <h3>{{ quiz.title }}</h3>
                   <span class="status-tag new">推荐</span>
                 </div>
                 <div class="quiz-meta">
-                  <span><el-icon><Document /></el-icon> 5 题</span>
-                  <span><el-icon><Timer /></el-icon> 不限时</span>
-                  <span class="difficulty medium">中等</span>
+                  <span><el-icon><Document /></el-icon> {{ quiz.questionCount || '-' }} 题</span>
+                  <span><el-icon><Timer /></el-icon> {{ quiz.timeLimit || '不限' }}分钟</span>
+                  <span class="difficulty medium">总分: {{ quiz.totalScore }}分</span>
                 </div>
               </div>
             </div>
-            <el-button class="action-btn green" round @click="startQuiz(3)">开始练习</el-button>
+            <el-button class="action-btn green" round @click="startQuiz(quiz.id)">开始练习</el-button>
           </div>
 
-          <div class="quiz-card">
+          <!-- 已完成的问卷 -->
+          <div 
+            v-for="quiz in completedQuizzes" 
+            :key="quiz.id" 
+            class="quiz-card"
+          >
             <div class="card-top">
               <div class="quiz-main-info">
                 <div class="quiz-title-row">
-                  <h3>错题本重练</h3>
-                  <span class="status-tag process">待复习</span>
+                  <h3>{{ quiz.title }}</h3>
+                  <span class="status-tag process">已练习</span>
                 </div>
                 <div class="quiz-meta">
-                  <span><el-icon><Document /></el-icon> 12 题</span>
-                  <span>来自历史错题</span>
+                  <span><el-icon><Document /></el-icon> {{ quiz.questionCount || '-' }} 题</span>
+                  <span>练习时间：{{ quiz.createTime ? new Date(quiz.createTime).toLocaleDateString() : '-' }}</span>
                 </div>
               </div>
+              <div class="score-display">
+                <span class="score-val">{{ quiz.score || '-' }}</span>
+                <span class="score-unit">分</span>
+              </div>
             </div>
-            <el-button class="action-btn green" round>去复习</el-button>
+            <el-button class="action-btn green" round @click="viewReport(quiz.id)">查看结果</el-button>
+          </div>
+
+          <!-- 空状态 -->
+          <div v-if="pendingQuizzes.length === 0 && completedQuizzes.length === 0 && !loading" class="empty-state">
+            <p>暂无练习</p>
           </div>
         </div>
       </template>
@@ -264,7 +314,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { 
   Timer, 
   Notebook, 
@@ -276,83 +326,136 @@ import {
   ArrowLeft 
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { 
+  getPendingQuestionnaires, 
+  getCompletedQuestionnaires, 
+  getQuestionnaireForAnswer,
+  submitQuestionnaire,
+  saveQuestionnaireProgress,
+  getQuestionnaireProgress,
+  getQuestionnaireReport
+} from '@/api/questionnaire'
 
 const currentQuiz = ref(null)
 const currentQuestionIndex = ref(0)
 const currentTab = ref('classroom')
 const userAnswers = ref({})
-const timer = ref('15:23')
+const timer = ref('00:00')
 let timerInterval = null
+let progressSaveInterval = null
 
-// Mock Quiz Data
-const mockQuizData = {
-  id: 1,
-  title: 'Lab3随堂测验-进程调度',
-  questions: [
-    {
-      id: 101,
-      type: 'single',
-      score: 10,
-      content: '在操作系统中，进程控制块（PCB）不包含以下哪项信息？',
-      options: [
-        { key: 'A', text: '进程状态' },
-        { key: 'B', text: '程序计数器' },
-        { key: 'C', text: '磁盘剩余空间' },
-        { key: 'D', text: '进程优先级' }
-      ]
-    },
-    {
-      id: 102,
-      type: 'single',
-      score: 10,
-      content: '下列关于时间片轮转调度算法的描述，错误的是？',
-      options: [
-        { key: 'A', text: '时间片过大会退化为FCFS算法' },
-        { key: 'B', text: '时间片过小会导致上下文切换开销过大' },
-        { key: 'C', text: '适用于分时系统' },
-        { key: 'D', text: '绝对保证了短作业优先' }
-      ]
-    },
-    {
-      id: 103,
-      type: 'multi',
-      score: 20,
-      content: '产生死锁的必要条件包括哪些？',
-      options: [
-        { key: 'A', text: '互斥条件' },
-        { key: 'B', text: '请求与保持条件' },
-        { key: 'C', text: '不可剥夺条件' },
-        { key: 'D', text: '循环等待条件' }
-      ]
-    }
-  ]
+// 问卷列表数据
+const pendingQuizzes = ref([])
+const completedQuizzes = ref([])
+const loading = ref(false)
+
+// 加载待完成的问卷列表
+const loadPendingQuestionnaires = async () => {
+  try {
+    loading.value = true
+    const response = await getPendingQuestionnaires()
+    pendingQuizzes.value = response.data || []
+  } catch (error) {
+    console.error('加载待完成问卷失败:', error)
+    ElMessage.error('加载问卷列表失败')
+  } finally {
+    loading.value = false
+  }
 }
+
+// 加载已完成的问卷列表
+const loadCompletedQuestionnaires = async () => {
+  try {
+    loading.value = true
+    const response = await getCompletedQuestionnaires()
+    completedQuizzes.value = response.data || []
+  } catch (error) {
+    console.error('加载已完成问卷失败:', error)
+    ElMessage.error('加载问卷列表失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 页面加载时获取数据
+onMounted(() => {
+  loadPendingQuestionnaires()
+  loadCompletedQuestionnaires()
+})
 
 const currentQuestion = computed(() => {
   return currentQuiz.value ? currentQuiz.value.questions[currentQuestionIndex.value] : {}
 })
 
-const startQuiz = (id) => {
-  currentQuiz.value = mockQuizData
-  startTimer()
+// 开始答题
+const startQuiz = async (id) => {
+  try {
+    loading.value = true
+    // 从后端获取问卷详情
+    const response = await getQuestionnaireForAnswer(id)
+    currentQuiz.value = response.data
+    
+    // 尝试加载之前保存的答题进度
+    try {
+      const progressResponse = await getQuestionnaireProgress(id)
+      if (progressResponse.data && progressResponse.data.answers) {
+        userAnswers.value = progressResponse.data.answers
+        if (progressResponse.data.currentQuestionIndex) {
+          currentQuestionIndex.value = progressResponse.data.currentQuestionIndex
+        }
+      }
+    } catch (error) {
+      console.log('没有找到答题进度，从头开始')
+    }
+    
+    startTimer()
+  } catch (error) {
+    console.error('加载问卷失败:', error)
+    ElMessage.error('加载问卷失败')
+  } finally {
+    loading.value = false
+  }
 }
 
 const startTimer = () => {
-  let [min, sec] = timer.value.split(':').map(Number)
-  timerInterval = setInterval(() => {
-    if (sec === 0) {
-      if (min === 0) {
-        clearInterval(timerInterval)
-        submitQuiz()
-        return
-      }
-      min--
-      sec = 59
-    } else {
-      sec--
-    }
+  if (!currentQuiz.value || !currentQuiz.value.timeLimit) return
+  
+  // 初始化倒计时（分钟）
+  let totalSeconds = currentQuiz.value.timeLimit * 60
+  
+  // 更新定时器显示
+  const updateTimer = () => {
+    const min = Math.floor(totalSeconds / 60)
+    const sec = totalSeconds % 60
     timer.value = `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+  }
+  
+  updateTimer()
+  
+  timerInterval = setInterval(() => {
+    totalSeconds--
+    
+    if (totalSeconds <= 0) {
+      clearInterval(timerInterval)
+      ElMessage.warning('答题时间已到，系统将自动提交')
+      submitQuiz()
+      return
+    }
+    
+    updateTimer()
   }, 1000)
+  
+  // 开始定时保存答题进度（每30秒保存一次）
+  progressSaveInterval = setInterval(async () => {
+    try {
+      await saveQuestionnaireProgress(currentQuiz.value.id, {
+        answers: userAnswers.value,
+        currentQuestionIndex: currentQuestionIndex.value
+      })
+    } catch (error) {
+      console.error('保存答题进度失败:', error)
+    }
+  }, 30000)
 }
 
 const selectOption = (key) => {
@@ -379,27 +482,75 @@ const isOptionSelected = (key) => {
   return ans === key
 }
 
-const submitQuiz = () => {
-  ElMessageBox.confirm(
-    '确定要提交试卷吗？提交后将无法修改答案。',
-    '提交确认',
-    {
-      confirmButtonText: '确定提交',
-      cancelButtonText: '取消',
-      type: 'warning',
-    }
-  ).then(() => {
-    clearInterval(timerInterval)
-    ElMessage({
-      type: 'success',
-      message: '试卷提交成功！得分：100分',
+// 格式化时间显示
+const formatTime = (minutes) => {
+  const min = Math.floor(minutes)
+  const sec = Math.floor((minutes - min) * 60)
+  return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`
+}
+
+// 计算时间进度百分比
+const calculateTimeProgress = (quiz) => {
+  if (!quiz.remainingTime || !quiz.timeLimit) return 0
+  return Math.max(0, Math.min(100, (quiz.remainingTime / quiz.timeLimit) * 100))
+}
+
+// 查看报告
+const viewReport = async (id) => {
+  try {
+    loading.value = true
+    const response = await getQuestionnaireReport(id)
+    // TODO: 显示报告对话框或跳转到报告页面
+    console.log('问卷报告:', response.data)
+    ElMessage.success('查看报告功能开发中')
+  } catch (error) {
+    console.error('获取问卷报告失败:', error)
+    ElMessage.error('获取报告失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+const submitQuiz = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要提交试卷吗？提交后将无法修改答案。',
+      '提交确认',
+      {
+        confirmButtonText: '确定提交',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+    
+    // 提交答案到后端
+    const response = await submitQuestionnaire(currentQuiz.value.id, {
+      answers: userAnswers.value
     })
+    
+    // 清除所有定时器
+    clearInterval(timerInterval)
+    clearInterval(progressSaveInterval)
+    
+    ElMessage.success(`试卷提交成功！得分：${response.data.score}分`)
+    
     currentQuiz.value = null
-  }).catch(() => {})
+    userAnswers.value = {}
+    currentQuestionIndex.value = 0
+    
+    // 重新加载问卷列表
+    await loadPendingQuestionnaires()
+    await loadCompletedQuestionnaires()
+  } catch (error) {
+    if (error === 'cancel') return
+    console.error('提交问卷失败:', error)
+    ElMessage.error('提交失败，请重试')
+  }
 }
 
 onUnmounted(() => {
   if (timerInterval) clearInterval(timerInterval)
+  if (progressSaveInterval) clearInterval(progressSaveInterval)
 })
 </script>
 

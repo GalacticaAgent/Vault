@@ -1,5 +1,6 @@
 package com.vault.dto.request;
 
+import com.vault.dto.QuestionOption;
 import lombok.Data;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
@@ -80,7 +81,7 @@ public class CreateQuestionnaireRequest {
         /**
          * 选项列表
          */
-        private List<String> options;
+        private List<QuestionOption> options;
 
         /**
          * 正确答案

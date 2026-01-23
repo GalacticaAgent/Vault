@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="chat-container">
     <!-- Left Sidebar: Recent Chats -->
     <div 
@@ -163,10 +163,6 @@
           <div class="input-left">
             <input type="file" ref="fileInputRef" style="display: none" @change="handleFileChange" accept=".pdf,.py,.java,.js,.ts,.cpp,.c,.txt,.md" />
             <el-icon class="attach-icon" @click="triggerFileUpload"><Paperclip /></el-icon>
-            <div class="deep-think-btn" :class="{ active: isDeepThinkActive }" @click="toggleDeepThink">
-              <el-icon><Cpu /></el-icon>
-              <span>深度思考</span>
-            </div>
           </div>
           
           <div class="input-container">
@@ -178,7 +174,7 @@
               @blur="handleInputBlur"
               @keydown.enter.prevent="handleSendMessage"
               @input="handleInput"
-              placeholder="发消息或输入“@”选择智能体" 
+              placeholder="" 
               class="chat-input" 
             />
             
@@ -207,15 +203,6 @@
           </div>
           
           <div class="input-actions">
-            <el-tooltip content="截图 (Alt+A)" placement="top">
-              <el-icon class="action-icon" @click="handleScreenshot"><Scissor /></el-icon>
-            </el-tooltip>
-            <el-tooltip content="语音通话" placement="top">
-              <el-icon class="action-icon" @click="handleVoiceCall"><Phone /></el-icon>
-            </el-tooltip>
-            <el-tooltip content="语音输入" placement="top">
-              <el-icon class="action-icon" @click="handleVoiceInput"><Microphone /></el-icon>
-            </el-tooltip>
             <div class="send-btn" @click="handleSendMessage" :class="{ 'can-send': inputMessage.trim() }">
               <el-icon><Top /></el-icon>
             </div>

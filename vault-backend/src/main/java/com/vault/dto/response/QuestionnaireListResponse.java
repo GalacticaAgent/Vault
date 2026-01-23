@@ -44,6 +44,11 @@ public class QuestionnaireListResponse {
     private BigDecimal totalScore;
 
     /**
+     * 时间限制（分钟）
+     */
+    private Integer timeLimit;
+
+    /**
      * 截止时间
      */
     private LocalDateTime deadline;

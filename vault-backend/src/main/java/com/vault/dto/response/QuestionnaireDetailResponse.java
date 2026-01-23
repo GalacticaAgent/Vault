@@ -1,5 +1,6 @@
 package com.vault.dto.response;
 
+import com.vault.dto.QuestionOption;
 import lombok.Builder;
 import lombok.Data;
 
@@ -124,7 +125,7 @@ public class QuestionnaireDetailResponse {
         /**
          * 选项列表
          */
-        private List<String> options;
+        private List<QuestionOption> options;
 
         /**
          * 正确答案（仅教师可见）

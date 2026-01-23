@@ -2,6 +2,7 @@ package com.vault.entity.mysql;
 
 import com.baomidou.mybatisplus.annotation.*;
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.vault.dto.QuestionOption;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -45,7 +46,7 @@ public class Question {
      * 选项（选择题使用，JSON格式）
      */
     @TableField(typeHandler = JacksonTypeHandler.class)
-    private List<String> options;
+    private List<QuestionOption> options;
 
     /**
      * 正确答案
