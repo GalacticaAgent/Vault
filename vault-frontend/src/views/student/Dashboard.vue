@@ -4,8 +4,13 @@
       <!-- User Profile Card -->
       <el-card class="dashboard-card user-card" shadow="hover">
         <div class="user-card-content">
-          <el-avatar :size="64" class="large-avatar" style="background: #a855f7">
-            {{ studentName.charAt(0) }}
+          <el-avatar 
+            :size="64" 
+            class="large-avatar" 
+            :src="avatarUrl"
+            style="background: #a855f7"
+          >
+            {{ !avatarUrl ? studentName.charAt(0) : '' }}
           </el-avatar>
           <div class="user-details">
             <div class="name-id">
@@ -43,6 +48,10 @@
             <div class="label"><el-icon><Trophy /></el-icon> 综合排名</div>
             <div class="value">{{ overallRank }}</div>
           </div>
+          <div class="overview-item">
+            <div class="label"><el-icon><Monitor /></el-icon> 提问总数</div>
+            <div class="value">{{ totalQuestions }} 次</div>
+          </div>
         </div>
       </el-card>
 
@@ -55,8 +64,8 @@
           </div>
           <div class="recommend-body">
             <div class="sub-label">待巩固知识点</div>
-            <div class="knowledge-point">并发控制 · 信号量机制</div>
-            <div class="recommend-meta">推荐练习<br>3 道相关题目</div>
+            <div class="knowledge-point">{{ recommendedKnowledge }}</div>
+            <div class="recommend-meta">{{ recommendedAction }}</div>
           </div>
           <el-button class="start-btn" round>开始学习</el-button>
         </div>
@@ -80,10 +89,40 @@
     <div class="bottom-section">
       <div class="section-header">
         <h2>我的看板</h2>
-        <el-button class="add-card-btn" plain>+ 添加卡片</el-button>
+        <el-button class="add-card-btn" plain @click="showAddCardDialog">+ 添加卡片</el-button>
       </div>
 
       <div class="dashboard-grid">
+        <!-- 自定义卡片 - 优先显示 -->
+        <el-card 
+          v-for="card in customCards" 
+          :key="card.id" 
+          class="grid-card custom-card" 
+          shadow="hover"
+        >
+          <template #header>
+            <div class="card-header">
+              <span>{{ card.title }}</span>
+              <div class="header-actions">
+                <el-icon @click="refreshCard(card.id)" style="cursor: pointer"><Refresh /></el-icon>
+                <el-icon @click="deleteCard(card.id)" style="cursor: pointer; color: #f56c6c"><Delete /></el-icon>
+              </div>
+            </div>
+          </template>
+          <div class="custom-card-content">
+            <div class="card-query">{{ card.query }}</div>
+            <div class="card-data" v-if="card.content">
+              <pre>{{ formatCardContent(card.content) }}</pre>
+            </div>
+            <div v-else class="empty-state">
+              <p>数据加载中...</p>
+            </div>
+            <div class="card-meta">
+              <span>更新时间: {{ formatTime(card.updateTime) }}</span>
+            </div>
+          </div>
+        </el-card>
+
         <!-- Weakest Knowledge Points -->
         <el-card class="grid-card" shadow="hover" v-loading="loading">
           <template #header>
@@ -134,17 +173,17 @@
                 <el-icon><Monitor /></el-icon>
               </div>
               <div class="course-meta">
-                <div class="course-name">操作系统 (Operating System)</div>
-                <div class="course-chapter">第 4 章：文件管理系统</div>
+                <div class="course-name">{{ courseName }}</div>
+                <div class="course-chapter">{{ chapterName }}</div>
               </div>
             </div>
             <div class="progress-section">
               <div class="progress-label">
                 <span>当前章节进度</span>
-                <span>70%</span>
+                <span>{{ learningProgress }}%</span>
               </div>
               <el-progress 
-                :percentage="70" 
+                :percentage="learningProgress" 
                 :stroke-width="12" 
                 color="#8b5cf6"
                 :show-text="false" 
@@ -152,7 +191,7 @@
             </div>
             <div class="next-step">
               <span class="label">下一节:</span>
-              <span class="value">4.2 文件目录结构</span>
+              <span class="value">{{ sectionName }}</span>
               <el-button type="primary" round size="small" class="continue-btn">继续学习</el-button>
             </div>
           </div>
@@ -189,6 +228,41 @@
         </el-card>
       </div>
     </div>
+
+    <!-- 添加卡片对话框 -->
+    <el-dialog 
+      v-model="addCardDialogVisible" 
+      title="添加自定义卡片" 
+      width="500px"
+      :close-on-click-modal="false"
+    >
+      <el-form :model="cardForm" label-width="100px">
+        <el-form-item label="卡片标题">
+          <el-input v-model="cardForm.title" placeholder="例如：我的薄弱知识点" />
+        </el-form-item>
+        <el-form-item label="查询描述">
+          <el-input 
+            v-model="cardForm.query" 
+            type="textarea" 
+            :rows="3"
+            placeholder="例如：列出我最薄弱的 5 个知识点"
+          />
+        </el-form-item>
+        <el-form-item label="刷新间隔">
+          <el-select v-model="cardForm.refreshInterval" placeholder="选择刷新频率">
+            <el-option label="不自动刷新" :value="0" />
+            <el-option label="每30秒" :value="30000" />
+            <el-option label="每分钟" :value="60000" />
+            <el-option label="每5分钟" :value="300000" />
+            <el-option label="每10分钟" :value="600000" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="addCardDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleAddCard" :loading="addingCard">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -202,10 +276,12 @@ import {
   Refresh, 
   MoreFilled,
   Monitor,
-  EditPen
+  EditPen,
+  Delete
 } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
-import { getStudentDashboard } from '@/api/student'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getStudentDashboard, addDashboardCard, deleteDashboardCard, refreshDashboardCard } from '@/api/student'
+import { useUserStore } from '@/store/modules/user'
 
 // ECharts imports
 import VChart from 'vue-echarts'
@@ -227,6 +303,9 @@ use([
   LegendComponent
 ])
 
+// 引入用户store
+const userStore = useUserStore()
+
 // 响应式数据
 const loading = ref(false)
 const dashboardData = ref(null)
@@ -241,6 +320,19 @@ const studentTags = computed(() => basicStats.value.tags || [])
 const weeklyStudyHours = computed(() => basicStats.value.weeklyStudyHours || 0)
 const continuousActiveDays = computed(() => basicStats.value.continuousActiveDays || 0)
 const overallRank = computed(() => basicStats.value.overallRankPercentile || 'N/A')
+const totalQuestions = computed(() => basicStats.value.totalQuestions || 0)
+const totalScores = computed(() => basicStats.value.totalScores || 0)
+
+// 头像URL - 将相对路径转换为完整URL
+const avatarUrl = computed(() => {
+  const avatar = userStore.userInfo?.avatar
+  if (!avatar) return ''
+  // 如果已经是完整URL，直接返回
+  if (avatar.startsWith('http')) return avatar
+  // 否则拼接API基础URL
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
+  return `${window.location.origin}${baseURL}${avatar}`
+})
 
 // 薄弱知识点
 const weakPoints = computed(() => {
@@ -251,48 +343,83 @@ const weakPoints = computed(() => {
   }))
 })
 
-// 图表数据
-const chartOption = computed(() => ({
-  tooltip: {
-    trigger: 'axis',
-    axisPointer: { type: 'shadow' }
-  },
-  grid: {
-    left: '3%',
-    right: '4%',
-    bottom: '3%',
-    containLabel: true
-  },
-  xAxis: {
-    type: 'category',
-    data: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-    axisLine: { show: false },
-    axisTick: { show: false },
-    axisLabel: { color: '#9ca3af' }
-  },
-  yAxis: {
-    type: 'value',
-    splitLine: { 
-      lineStyle: { type: 'dashed', color: '#f3f4f6' } 
+// 个性化推荐 - 基于第一个薄弱知识点
+const recommendedKnowledge = computed(() => {
+  const weakKnowledgePoints = dashboardData.value?.weakKnowledgePoints || []
+  if (weakKnowledgePoints.length > 0) {
+    return weakKnowledgePoints[0].knowledgeName
+  }
+  return '暂无推荐'
+})
+
+const recommendedAction = computed(() => {
+  const weakKnowledgePoints = dashboardData.value?.weakKnowledgePoints || []
+  if (weakKnowledgePoints.length > 0) {
+    const point = weakKnowledgePoints[0]
+    return point.suggestion || '推荐练习相关题目'
+  }
+  return '继续加油学习'
+})
+
+// 当前学习进度
+const currentLearningProgress = computed(() => dashboardData.value?.currentLearningProgress || {})
+const courseName = computed(() => currentLearningProgress.value.courseName || '暂无课程')
+const chapterName = computed(() => currentLearningProgress.value.chapterName || '暂无章节')
+const sectionName = computed(() => currentLearningProgress.value.sectionName || '暂无小节')
+const learningProgress = computed(() => currentLearningProgress.value.progress || 0)
+
+// 图表数据 - 从后端获取学习趋势
+const chartOption = computed(() => {
+  const studyTrends = dashboardData.value?.studyTrends || []
+  const days = studyTrends.map(t => t.dayOfWeek || 'N/A')
+  const hours = studyTrends.map(t => t.studyHours || 0)
+  
+  // 如果没有数据，使用默认值
+  const xAxisData = days.length > 0 ? days : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  const seriesData = hours.length > 0 ? hours : [2.5, 4.0, 3.2, 5.5, 3.8, 6.0, 4.5]
+  
+  return {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' }
     },
-    axisLabel: { color: '#9ca3af' }
-  },
-  series: [
-    {
-      name: '学习时长 (h)',
-      type: 'bar',
-      barWidth: '40%',
-      data: [2.5, 4.0, 3.2, 5.5, 3.8, 6.0, 4.5],
-      itemStyle: {
-        color: '#8b5cf6',
-        borderRadius: [4, 4, 0, 0]
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      data: xAxisData,
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { color: '#9ca3af' }
+    },
+    yAxis: {
+      type: 'value',
+      splitLine: { 
+        lineStyle: { type: 'dashed', color: '#f3f4f6' } 
       },
-      emphasis: {
-        itemStyle: { color: '#7c3aed' }
+      axisLabel: { color: '#9ca3af' }
+    },
+    series: [
+      {
+        name: '学习时长 (h)',
+        type: 'bar',
+        barWidth: '40%',
+        data: seriesData,
+        itemStyle: {
+          color: '#8b5cf6',
+          borderRadius: [4, 4, 0, 0]
+        },
+        emphasis: {
+          itemStyle: { color: '#7c3aed' }
+        }
       }
-    }
-  ]
-}))
+    ]
+  }
+})
 
 const getProgressColor = (score) => {
   if (score < 60) return '#ef4444'
@@ -321,12 +448,134 @@ const assignments = [
   }
 ]
 
+// 自定义卡片相关
+const addCardDialogVisible = ref(false)
+const addingCard = ref(false)
+const cardForm = ref({
+  title: '',
+  query: '',
+  refreshInterval: 0
+})
+
+// 自定义卡片列表
+const customCards = computed(() => dashboardData.value?.customCards || [])
+
+// 显示添加卡片对话框
+const showAddCardDialog = () => {
+  cardForm.value = {
+    title: '',
+    query: '',
+    refreshInterval: 0
+  }
+  addCardDialogVisible.value = true
+}
+
+// 添加新卡片
+const handleAddCard = async () => {
+  if (!cardForm.value.title || !cardForm.value.query) {
+    ElMessage.warning('请填写卡片标题和查询内容')
+    return
+  }
+  
+  try {
+    addingCard.value = true
+    await addDashboardCard({
+      title: cardForm.value.title,
+      query: cardForm.value.query,
+      refreshInterval: cardForm.value.refreshInterval
+    })
+    ElMessage.success('卡片添加成功')
+    addCardDialogVisible.value = false
+    await loadDashboard() // 重新加载数据
+  } catch (error) {
+    console.error('添加卡片失败:', error)
+    ElMessage.error('添加卡片失败')
+  } finally {
+    addingCard.value = false
+  }
+}
+
+// 刷新卡片
+const refreshCard = async (cardId) => {
+  try {
+    await refreshDashboardCard(cardId)
+    ElMessage.success('卡片已刷新')
+    await loadDashboard() // 重新加载数据
+  } catch (error) {
+    console.error('刷新卡片失败:', error)
+    ElMessage.error('刷新卡片失败')
+  }
+}
+
+// 删除卡片
+const deleteCard = async (cardId) => {
+  try {
+    await ElMessageBox.confirm('确定删除此卡片？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await deleteDashboardCard(cardId)
+    ElMessage.success('卡片已删除')
+    await loadDashboard() // 重新加载数据
+  } catch (error) {
+    if (error === 'cancel') return
+    console.error('删除卡片失败:', error)
+    ElMessage.error('删除卡片失败')
+  }
+}
+
+// 格式化卡片内容
+const formatCardContent = (content) => {
+  if (!content) return '暂无数据'
+  // 如果内容是数组，格式化为列表
+  if (Array.isArray(content)) {
+    return content.join('\n')
+  }
+  // 如果内容是对象，格式化为键值对
+  if (typeof content === 'object') {
+    return Object.entries(content)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join('\n')
+  }
+  return content
+}
+
+// 格式化时间
+const formatTime = (timestamp) => {
+  if (!timestamp) return ''
+  const date = new Date(timestamp)
+  const now = new Date()
+  const diff = now - date
+  
+  // 小于1分钟
+  if (diff < 60000) {
+    return '刚刚'
+  }
+  // 小于1小时
+  if (diff < 3600000) {
+    return `${Math.floor(diff / 60000)}分钟前`
+  }
+  // 小于24小时
+  if (diff < 86400000) {
+    return `${Math.floor(diff / 3600000)}小时前`
+  }
+  // 小于7天
+  if (diff < 604800000) {
+    return `${Math.floor(diff / 86400000)}天前`
+  }
+  // 超过7天显示日期
+  return date.toLocaleDateString()
+}
+
 // 加载看板数据
 const loadDashboard = async () => {
   try {
     loading.value = true
     const response = await getStudentDashboard()
     dashboardData.value = response.data
+    console.log('Dashboard data loaded:', dashboardData.value)
+    console.log('Study trends:', dashboardData.value?.studyTrends)
   } catch (error) {
     console.error('加载看板数据失败:', error)
     ElMessage.error('加载看板数据失败')
@@ -336,7 +585,14 @@ const loadDashboard = async () => {
 }
 
 // 页面加载时获取数据
-onMounted(() => {
+onMounted(async () => {
+  // 先获取用户信息（包括头像）
+  try {
+    await userStore.getUserInfo()
+  } catch (error) {
+    console.error('获取用户信息失败:', error)
+  }
+  // 然后加载看板数据
   loadDashboard()
 })
 </script>
@@ -427,27 +683,36 @@ onMounted(() => {
 }
 
 .chart-card {
-  height: 320px;
+  height: 360px;
   display: flex;
   flex-direction: column;
+}
+
+.chart-card :deep(.el-card__body) {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
 }
 
 .card-header-wrapper {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px 0;
+  padding: 16px 20px;
+  flex-shrink: 0;
 }
 
 .chart-container {
   flex: 1;
   min-height: 0;
-  padding: 10px;
+  padding: 0 20px 20px;
 }
 
 .chart {
   height: 100%;
   width: 100%;
+  min-height: 250px;
 }
 
 .overview-card .card-title {

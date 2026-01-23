@@ -45,7 +45,7 @@
               :size="isCollapsed ? 40 : 32" 
               class="user-avatar" 
               :src="userAvatar"
-              style="background: #00bcd4"
+              style="background: #a855f7"
             >
               {{ !userAvatar ? userName.charAt(0) : '' }}
             </el-avatar>
@@ -105,7 +105,13 @@ const isCollapsed = ref(false)
 const avatarInput = ref(null)
 
 const userAvatar = computed(() => {
-  return userStore.userInfo?.avatar || ''
+  const avatar = userStore.userInfo?.avatar
+  if (!avatar) return ''
+  // 如果已经是完整URL，直接返回
+  if (avatar.startsWith('http')) return avatar
+  // 否则拼接API基础URL
+  const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
+  return `${window.location.origin}${baseURL}${avatar}`
 })
 
 const userName = computed(() => {

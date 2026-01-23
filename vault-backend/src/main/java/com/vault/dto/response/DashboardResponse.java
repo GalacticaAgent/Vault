@@ -139,6 +139,18 @@ public class DashboardResponse {
     private List<DashboardCard> customCards;
 
     /**
+     * 学习投入趋势数据
+     * 用于显示学生每周或每月的学习时长变化
+     */
+    private List<StudyTrend> studyTrends;
+
+    /**
+     * 当前学习进度
+     * 显示学生当前正在学习的课程和章节进度
+     */
+    private CurrentLearningProgress currentLearningProgress;
+
+    /**
      * 基本统计信息
      */
     @Data
@@ -602,7 +614,7 @@ public class DashboardResponse {
          * 知识点名称
          * 例如："虚拟内存"、"进程调度"
          */
-        private String knowledgePoint;
+        private String knowledgeName;
 
         /**
          * 掌握程度
@@ -612,6 +624,12 @@ public class DashboardResponse {
 
         /**
          * 相关题目错误次数
+         * 该知识点相关题目的答错次数
+         */
+        private Integer wrongCount;
+
+        /**
+         * 相关题目错误次数（备用字段，与wrongCount相同）
          * 该知识点相关题目的答错次数
          */
         private Integer errorCount;
@@ -702,5 +720,63 @@ public class DashboardResponse {
          * 其他学生的下载次数，作为资料质量的参考
          */
         private Integer downloadCount;
+    }
+
+    /**
+     * 学习投入趋势数据点
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class StudyTrend {
+        /**
+         * 日期
+         */
+        private String date;
+
+        /**
+         * 星期几
+         */
+        private String dayOfWeek;
+
+        /**
+         * 学习时长（小时）
+         */
+        private Double studyHours;
+
+        /**
+         * 提问数量
+         */
+        private Integer questionCount;
+    }
+
+    /**
+     * 当前学习进度
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CurrentLearningProgress {
+        /**
+         * 课程名称
+         */
+        private String courseName;
+
+        /**
+         * 章节名称
+         */
+        private String chapterName;
+
+        /**
+         * 小节名称
+         */
+        private String sectionName;
+
+        /**
+         * 进度百分比
+         */
+        private Integer progress;
     }
 }

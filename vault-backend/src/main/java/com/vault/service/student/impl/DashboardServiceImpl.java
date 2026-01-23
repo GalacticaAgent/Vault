@@ -62,10 +62,12 @@ public class DashboardServiceImpl implements DashboardService {
                     .scoreAnalysis(buildEmptyScoreAnalysis())
                     .rankInfo(buildMockRankInfo())
                     .knowledgePointProgress(Collections.emptyList())
-                    .weakKnowledgePoints(Collections.emptyList())
+                    .weakKnowledgePoints(buildMockWeakKnowledgePoints())
                     .recommendedMaterials(Collections.emptyList())
                     .recentActivities(buildRecentActivities(userId))
                     .customCards(buildCustomCards(userId))
+                    .studyTrends(buildMockStudyTrends())
+                    .currentLearningProgress(buildMockCurrentLearningProgress())
                     .build();
 
             log.info("成功获取学生看板数据, userId={}, studentId={}", userId, student.getId());
@@ -93,12 +95,26 @@ public class DashboardServiceImpl implements DashboardService {
         // 查询用户信息获取昵称
         User user = userMapper.selectById(userId);
 
+        // 构建学生标签（基于成绩和活跃度）
+        List<String> tags = new ArrayList<>();
+        if (student.getTotalQuestions() != null && student.getTotalQuestions() > 10) {
+            tags.add("积极提问");
+        }
+        if (student.getTotalScores() != null && student.getTotalScores().compareTo(new BigDecimal("80")) >= 0) {
+            tags.add("成绩优秀");
+        }
+
         return DashboardResponse.BasicStats.builder()
                 .name(user != null ? user.getNickname() : null)
                 .studentNumber(student.getStudentNumber())
                 .major(student.getMajor())
                 .grade(student.getGrade())
                 .className(student.getClassName())
+                .currentCourse("操作系统")  // 后续可从课程表获取
+                .tags(tags)
+                .weeklyStudyHours(12.5)  // 模拟数据，后续可从学习记录表统计
+                .continuousActiveDays(5)  // 模拟数据，后续可从登录记录表统计
+                .overallRankPercentile("Top 15%")  // 模拟数据，后续可从排名缓存获取
                 .totalQuestions(student.getTotalQuestions() != null ? student.getTotalQuestions() : 0)
                 .totalScores(student.getTotalScores() != null ? student.getTotalScores() : BigDecimal.ZERO)
                 .build();
@@ -147,6 +163,71 @@ public class DashboardServiceImpl implements DashboardService {
                 .percentile(95.0)
                 .rankChange(2)
                 .lastCalculated(LocalDateTime.now().minusDays(1))
+                .build();
+    }
+
+    /**
+     * 构建模拟薄弱知识点（用于演示）
+     */
+    private List<DashboardResponse.WeakKnowledgePoint> buildMockWeakKnowledgePoints() {
+        List<DashboardResponse.WeakKnowledgePoint> weakPoints = new ArrayList<>();
+        
+        weakPoints.add(DashboardResponse.WeakKnowledgePoint.builder()
+                .knowledgeName("并发控制")
+                .proficiency(0.45)
+                .wrongCount(8)
+                .lastAssessed(LocalDateTime.now().minusDays(2))
+                .suggestion("建议复习进程同步机制，特别是信号量和管程的使用")
+                .build());
+                
+        weakPoints.add(DashboardResponse.WeakKnowledgePoint.builder()
+                .knowledgeName("页面置换算法")
+                .proficiency(0.52)
+                .wrongCount(6)
+                .lastAssessed(LocalDateTime.now().minusDays(3))
+                .suggestion("重点理解LRU和Clock算法的实现原理")
+                .build());
+                
+        weakPoints.add(DashboardResponse.WeakKnowledgePoint.builder()
+                .knowledgeName("死锁检测")
+                .proficiency(0.58)
+                .wrongCount(5)
+                .lastAssessed(LocalDateTime.now().minusDays(5))
+                .suggestion("加强对资源分配图和银行家算法的练习")
+                .build());
+                
+        return weakPoints;
+    }
+
+    /**
+     * 构建模拟学习投入趋势（用于演示）
+     */
+    private List<DashboardResponse.StudyTrend> buildMockStudyTrends() {
+        List<DashboardResponse.StudyTrend> trends = new ArrayList<>();
+        String[] days = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+        double[] hours = {2.5, 4.0, 3.2, 5.5, 3.8, 6.0, 4.5};
+        
+        for (int i = 0; i < days.length; i++) {
+            trends.add(DashboardResponse.StudyTrend.builder()
+                    .date(LocalDateTime.now().minusDays(6 - i).toLocalDate().toString())
+                    .dayOfWeek(days[i])
+                    .studyHours(hours[i])
+                    .questionCount(i + 3)
+                    .build());
+        }
+        
+        return trends;
+    }
+
+    /**
+     * 构建模拟当前学习进度（用于演示）
+     */
+    private DashboardResponse.CurrentLearningProgress buildMockCurrentLearningProgress() {
+        return DashboardResponse.CurrentLearningProgress.builder()
+                .courseName("操作系统 (Operating System)")
+                .chapterName("第 4 章：文件管理系统")
+                .sectionName("4.2 文件目录结构")
+                .progress(70)
                 .build();
     }
 
