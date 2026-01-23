@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import jakarta.annotation.PostConstruct;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -35,6 +36,8 @@ public class FileService {
     @Value("${vault.file.upload-dir:uploads}")
     private String uploadDir;
     
+    private String absoluteUploadPath;
+    
     @Value("${vault.file.max-size:10485760}") // 10MB
     private long maxFileSize;
     
@@ -44,6 +47,29 @@ public class FileService {
     
     @Value("${vault.minio.bucket:vault-files}")
     private String minioBucket;
+    
+    /**
+     * 初始化上传目录的绝对路径
+     */
+    @PostConstruct
+    public void init() {
+        try {
+            Path path = Paths.get(uploadDir);
+            if (!path.isAbsolute()) {
+                // 如果是相对路径，转换为绝对路径（相对于项目根目录）
+                absoluteUploadPath = Paths.get(System.getProperty("user.dir"), uploadDir).toString();
+            } else {
+                absoluteUploadPath = uploadDir;
+            }
+            
+            // 创建目录
+            Files.createDirectories(Paths.get(absoluteUploadPath));
+            log.info("文件上传目录初始化成功: {}", absoluteUploadPath);
+        } catch (IOException e) {
+            log.error("文件上传目录初始化失败", e);
+            throw new RuntimeException("文件上传目录初始化失败", e);
+        }
+    }
     
     /**
      * 上传文件
@@ -165,13 +191,16 @@ public class FileService {
         String uuid = UUID.randomUUID().toString();
         String filename = uuid + "_" + file.getOriginalFilename();
         
-        Path dirPath = Paths.get(uploadDir, datePath);
+        // 使用绝对路径
+        Path dirPath = Paths.get(absoluteUploadPath, datePath);
         Files.createDirectories(dirPath);
         
         Path filePath = dirPath.resolve(filename);
         file.transferTo(filePath.toFile());
         
-        // 返回相对路径
+        log.info("文件保存成功: {}", filePath.toString());
+        
+        // 返回相对路径（用于URL访问）
         return datePath + "/" + filename;
     }
     

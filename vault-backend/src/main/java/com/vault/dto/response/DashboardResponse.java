@@ -172,6 +172,35 @@ public class DashboardResponse {
         private String className;
 
         /**
+         * 所在课程/当前学习课程
+         */
+        private String currentCourse;
+
+        /**
+         * 学生标签列表
+         * 例如：["理论扎实", "代码规范"]
+         */
+        private List<String> tags;
+
+        /**
+         * 本周学习时间（小时）
+         * 统计最近7天的学习时长
+         */
+        private Double weeklyStudyHours;
+
+        /**
+         * 连续活跃天数
+         * 统计连续登录或学习的天数
+         */
+        private Integer continuousActiveDays;
+
+        /**
+         * 综合排名（百分比形式，如 "Top 15%"）
+         * 基于成绩、学习时长等综合计算
+         */
+        private String overallRankPercentile;
+
+        /**
          * 总提问次数
          * 从students表的total_questions字段获取
          */

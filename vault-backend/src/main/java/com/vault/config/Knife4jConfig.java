@@ -74,23 +74,12 @@ public class Knife4jConfig {
     }
 
     /**
-     * 问卷模块API
-     */
-    @Bean
-    public GroupedOpenApi questionnaireApi() {
-        return GroupedOpenApi.builder()
-                .group("5. 问卷模块")
-                .pathsToMatch("/questionnaire/**")
-                .build();
-    }
-
-    /**
-     * 材料模块API
+     * 材料查询API（公共接口）
      */
     @Bean
     public GroupedOpenApi materialApi() {
         return GroupedOpenApi.builder()
-                .group("6. 材料模块")
+                .group("5. 材料查询")
                 .pathsToMatch("/material/**")
                 .build();
     }
@@ -101,7 +90,7 @@ public class Knife4jConfig {
     @Bean
     public GroupedOpenApi skillApi() {
         return GroupedOpenApi.builder()
-                .group("7. 技能模块")
+                .group("6. 技能模块")
                 .pathsToMatch("/skill/**")
                 .build();
     }

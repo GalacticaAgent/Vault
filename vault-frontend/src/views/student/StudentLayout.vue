@@ -125,16 +125,40 @@ const handleAvatarCommand = (command) => {
   }
 }
 
-const onAvatarFileChange = (event) => {
+const onAvatarFileChange = async (event) => {
   const file = event.target.files[0]
   if (file) {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const newAvatar = e.target.result
-      userStore.updateAvatar(newAvatar)
-      ElMessage.success('头像更换成功')
+    // 验证文件类型
+    if (!file.type.startsWith('image/')) {
+      ElMessage.error('只能上传图片文件')
+      return
     }
-    reader.readAsDataURL(file)
+    
+    // 验证文件大小（5MB）
+    if (file.size > 5 * 1024 * 1024) {
+      ElMessage.error('图片大小不能超过5MB')
+      return
+    }
+    
+    try {
+      // 显示加载提示
+      const loading = ElMessage({
+        message: '正在上传头像...',
+        type: 'info',
+        duration: 0
+      })
+      
+      // 上传到服务器
+      await userStore.updateAvatar(file)
+      
+      loading.close()
+      ElMessage.success('头像更换成功')
+      
+      // 清空文件选择，允许重复选择同一文件
+      event.target.value = ''
+    } catch (error) {
+      ElMessage.error(error.response?.data?.message || '头像上传失败')
+    }
   }
 }
 </script>

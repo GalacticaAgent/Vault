@@ -4,16 +4,24 @@
       <!-- User Profile Card -->
       <el-card class="dashboard-card user-card" shadow="hover">
         <div class="user-card-content">
-          <el-avatar :size="64" class="large-avatar" style="background: #a855f7">张</el-avatar>
+          <el-avatar :size="64" class="large-avatar" style="background: #a855f7">
+            {{ studentName.charAt(0) }}
+          </el-avatar>
           <div class="user-details">
             <div class="name-id">
-              <span class="name">张三</span>
-              <span class="student-id">学号: 2024001</span>
+              <span class="name">{{ studentName }}</span>
+              <span class="student-id">学号: {{ studentNumber }}</span>
             </div>
-            <div class="course-info">所在课程: 操作系统</div>
+            <div class="course-info">所在课程: {{ currentCourse }}</div>
             <div class="tags">
-              <span class="tag green">理论扎实</span>
-              <span class="tag purple">代码规范</span>
+              <span 
+                v-for="(tag, index) in studentTags" 
+                :key="index" 
+                class="tag"
+                :class="index % 2 === 0 ? 'green' : 'purple'"
+              >
+                {{ tag }}
+              </span>
             </div>
           </div>
         </div>
@@ -25,15 +33,15 @@
         <div class="overview-items">
           <div class="overview-item">
             <div class="label"><el-icon><Timer /></el-icon> 本周学习时间</div>
-            <div class="value">12.5 小时</div>
+            <div class="value">{{ weeklyStudyHours }} 小时</div>
           </div>
           <div class="overview-item">
             <div class="label"><el-icon><Calendar /></el-icon> 连续活跃天数</div>
-            <div class="value">15 天</div>
+            <div class="value">{{ continuousActiveDays }} 天</div>
           </div>
           <div class="overview-item">
             <div class="label"><el-icon><Trophy /></el-icon> 综合排名</div>
-            <div class="value">Top 15%</div>
+            <div class="value">{{ overallRank }}</div>
           </div>
         </div>
       </el-card>
@@ -77,17 +85,17 @@
 
       <div class="dashboard-grid">
         <!-- Weakest Knowledge Points -->
-        <el-card class="grid-card" shadow="hover">
+        <el-card class="grid-card" shadow="hover" v-loading="loading">
           <template #header>
             <div class="card-header">
               <span>我最薄弱的知识点排行 (Top 5)</span>
               <div class="header-actions">
-                <el-icon><Refresh /></el-icon>
+                <el-icon @click="loadDashboard" style="cursor: pointer"><Refresh /></el-icon>
                 <el-icon><MoreFilled /></el-icon>
               </div>
             </div>
           </template>
-          <div class="knowledge-list">
+          <div class="knowledge-list" v-if="weakPoints.length > 0">
             <div v-for="(item, index) in weakPoints" :key="index" class="knowledge-item">
               <div class="k-info">
                 <span class="k-name">{{ item.name }}</span>
@@ -103,6 +111,9 @@
                 <el-button link type="primary" size="small">专项练习 ></el-button>
               </div>
             </div>
+          </div>
+          <div v-else class="empty-state">
+            <p>暂无数据</p>
           </div>
         </el-card>
 
@@ -182,7 +193,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { 
   Timer, 
   Calendar, 
@@ -193,6 +204,8 @@ import {
   Monitor,
   EditPen
 } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { getStudentDashboard } from '@/api/student'
 
 // ECharts imports
 import VChart from 'vue-echarts'
@@ -214,8 +227,31 @@ use([
   LegendComponent
 ])
 
+// 响应式数据
+const loading = ref(false)
+const dashboardData = ref(null)
 const timeRange = ref('week')
 
+// 基本信息
+const basicStats = computed(() => dashboardData.value?.basicStats || {})
+const studentName = computed(() => basicStats.value.name || '学生')
+const studentNumber = computed(() => basicStats.value.studentNumber || '')
+const currentCourse = computed(() => basicStats.value.currentCourse || '暂无课程')
+const studentTags = computed(() => basicStats.value.tags || [])
+const weeklyStudyHours = computed(() => basicStats.value.weeklyStudyHours || 0)
+const continuousActiveDays = computed(() => basicStats.value.continuousActiveDays || 0)
+const overallRank = computed(() => basicStats.value.overallRankPercentile || 'N/A')
+
+// 薄弱知识点
+const weakPoints = computed(() => {
+  const weakKnowledgePoints = dashboardData.value?.weakKnowledgePoints || []
+  return weakKnowledgePoints.map(point => ({
+    name: point.knowledgeName,
+    score: Math.round((point.proficiency || 0) * 100)
+  }))
+})
+
+// 图表数据
 const chartOption = computed(() => ({
   tooltip: {
     trigger: 'axis',
@@ -258,12 +294,6 @@ const chartOption = computed(() => ({
   ]
 }))
 
-const weakPoints = [
-  { name: '并发控制', score: 68 },
-  { name: '死锁处理', score: 72 },
-  { name: '设备驱动', score: 75 }
-]
-
 const getProgressColor = (score) => {
   if (score < 60) return '#ef4444'
   if (score < 80) return '#eab308'
@@ -290,6 +320,25 @@ const assignments = [
     isUrgent: false
   }
 ]
+
+// 加载看板数据
+const loadDashboard = async () => {
+  try {
+    loading.value = true
+    const response = await getStudentDashboard()
+    dashboardData.value = response.data
+  } catch (error) {
+    console.error('加载看板数据失败:', error)
+    ElMessage.error('加载看板数据失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 页面加载时获取数据
+onMounted(() => {
+  loadDashboard()
+})
 </script>
 
 <style scoped>

@@ -354,6 +354,38 @@ public class SkillLoader {
         return new ArrayList<>(skills.values());
     }
     
+    /**
+     * 获取技能 (别名方法)
+     */
+    public SkillDefinition getSkill(String name) {
+        return getSkillByName(name);
+    }
+    
+    /**
+     * 重新加载所有技能
+     */
+    public int reloadSkills() {
+        loadAllSkills();
+        return skills.size();
+    }
+    
+    /**
+     * 搜索技能
+     */
+    public List<SkillDefinition> searchSkills(String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return getAllSkills();
+        }
+        
+        String lowerKeyword = keyword.toLowerCase();
+        return skills.values().stream()
+            .filter(skill -> 
+                skill.getName().toLowerCase().contains(lowerKeyword) ||
+                (skill.getDescription() != null && skill.getDescription().toLowerCase().contains(lowerKeyword))
+            )
+            .collect(Collectors.toList());
+    }
+    
     private void startWatchService() {
         try {
             Path skillDirPath = resolveSkillsDir();

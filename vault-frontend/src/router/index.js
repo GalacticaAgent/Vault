@@ -19,6 +19,11 @@ const router = createRouter({
       component: () => import('../views/auth/Register.vue')
     },
     {
+      path: '/test-api',
+      name: 'test-api',
+      component: () => import('../views/common/ApiTest.vue')
+    },
+    {
       path: '/student',
       name: 'student',
       component: () => import('../views/student/StudentLayout.vue'),
@@ -100,7 +105,7 @@ router.beforeEach((to, from, next) => {
   const userStore = useUserStore()
   
   // 白名单路由（不需要登录）
-  const whiteList = ['/', '/login', '/register']
+  const whiteList = ['/', '/login', '/register', '/test-api']
   
   if (userStore.isLoggedIn) {
     // 已登录

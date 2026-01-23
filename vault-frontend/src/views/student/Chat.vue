@@ -6,7 +6,7 @@
       :class="{ 'is-collapsed': !isSidebarVisible }"
     >
       <div class="sidebar-header">
-        <el-button class="new-chat-btn" round>
+        <el-button class="new-chat-btn" round @click="handleNewChat">
           <el-icon><Plus /></el-icon> 新对话
         </el-button>
         <el-tooltip content="收起侧边栏" placement="right">
@@ -22,28 +22,33 @@
           <el-icon :class="{ 'is-rotated': isRecentCollapsed }"><ArrowDown /></el-icon>
         </div>
         <div class="chat-list-wrapper" :class="{ 'is-collapsed': isRecentCollapsed }">
-          <div class="chat-list">
-            <div class="chat-item" v-for="(item, index) in recentChats" :key="index">
+          <div class="chat-list" v-loading="chatListLoading">
+            <div 
+              class="chat-item" 
+              v-for="item in recentChats" 
+              :key="item.id"
+              :class="{ 'is-active': currentChatId === item.id }"
+              @click="loadChatDetail(item.id)"
+            >
               <div class="chat-item-content">
                 <el-icon><Clock /></el-icon>
-                <span class="chat-title">{{ item }}</span>
+                <span class="chat-title">{{ item.title }}</span>
               </div>
               
               <!-- More Options Dropdown -->
-              <el-dropdown trigger="click" @command="handleChatOptionCommand">
-                <el-icon class="more-icon"><MoreFilled /></el-icon>
+              <el-dropdown trigger="click" @command="(cmd) => handleChatOptionCommand(cmd, item.id)">
+                <el-icon class="more-icon" @click.stop><MoreFilled /></el-icon>
                 <template #dropdown>
                   <el-dropdown-menu class="chat-options-dropdown">
-                    <el-dropdown-item command="pin" icon="Top">置顶</el-dropdown-item>
                     <el-dropdown-item command="share" icon="Share">分享</el-dropdown-item>
-                    <el-dropdown-item command="collect" icon="Collection">收藏</el-dropdown-item>
-                    <el-dropdown-item command="bookmark" icon="Star">添加书签</el-dropdown-item>
                     <el-dropdown-item command="rename" icon="Edit">重命名</el-dropdown-item>
-                    <el-dropdown-item command="report" icon="Warning">举报</el-dropdown-item>
                     <el-dropdown-item command="delete" icon="Delete" class="danger-text">删除</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
+            </div>
+            <div v-if="recentChats.length === 0 && !chatListLoading" class="empty-chat-list">
+              暂无聊天记录
             </div>
           </div>
         </div>
@@ -156,7 +161,8 @@
       <div class="chat-input-area">
         <div class="input-box-wrapper" :class="{ 'is-focused': isInputFocused }">
           <div class="input-left">
-            <el-icon class="attach-icon"><Paperclip /></el-icon>
+            <input type="file" ref="fileInputRef" style="display: none" @change="handleFileChange" accept=".pdf,.py,.java,.js,.ts,.cpp,.c,.txt,.md" />
+            <el-icon class="attach-icon" @click="triggerFileUpload"><Paperclip /></el-icon>
             <div class="deep-think-btn" :class="{ active: isDeepThinkActive }" @click="toggleDeepThink">
               <el-icon><Cpu /></el-icon>
               <span>深度思考</span>
@@ -215,27 +221,13 @@
             </div>
           </div>
         </div>
-
-        <div class="tools-bar">
-          <el-tag class="tool-tag" round effect="plain"><el-icon><EditPen /></el-icon> 帮我写作</el-tag>
-          <el-tag class="tool-tag" round effect="plain"><el-icon><Monitor /></el-icon> 编程</el-tag>
-          <el-tag class="tool-tag" round effect="plain"><el-icon><Picture /></el-icon> 图像生成</el-tag>
-          <el-tag class="tool-tag" round effect="plain"><el-icon><VideoCamera /></el-icon> 视频生成</el-tag>
-          <el-tag class="tool-tag" round effect="plain"><el-icon><Reading /></el-icon> 翻译</el-tag>
-          <el-tag class="tool-tag" round effect="plain"><el-icon><Search /></el-icon> 深入研究</el-tag>
-          <el-tag class="tool-tag" round effect="plain"><el-icon><Grid /></el-icon> 更多</el-tag>
-        </div>
-        
-        <div class="disclaimer">
-          AI 可能会出错，请核对重要信息。按 Enter 发送，Shift+Enter 换行。
-        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref, nextTick, onMounted } from 'vue'
 import { 
   Plus, 
   Clock, 
@@ -275,13 +267,12 @@ import {
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/store/modules/user'
+import { getChatList, sendMessage, getChatDetail, deleteChat, shareChat, uploadFile } from '@/api/chat'
 
 const userStore = useUserStore()
-const recentChats = ref([
-  'React Hooks Explanation...',
-  'Redux vs Context API',
-  'TypeScript Generics'
-])
+const recentChats = ref([])
+const chatListLoading = ref(false)
+const currentChatId = ref(null)
 
 const agents = [
   { id: 'writer', name: '写作助手', description: '帮我撰写、润色文章', icon: 'EditPen', color: '#f43f5e' },
@@ -302,6 +293,7 @@ const isTyping = ref(false)
 // Agent selection state
 const showAgentList = ref(false)
 const inputRef = ref(null)
+const fileInputRef = ref(null)
 const selectedAgentIndex = ref(0)
 const agentPopoverStyle = ref({ bottom: '100%', left: '0' })
 const currentAgent = ref(null)
@@ -365,7 +357,39 @@ const selectAgent = (agent) => {
   }
 }
 
-const handleSendMessage = () => {
+// 文件上传相关函数
+const triggerFileUpload = () => {
+  fileInputRef.value?.click()
+}
+
+const handleFileChange = async (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+  
+  // 文件大小限制 10MB
+  if (file.size > 10 * 1024 * 1024) {
+    ElMessage.error('文件大小不能超过 10MB')
+    return
+  }
+  
+  try {
+    ElMessage.info('正在上传文件...')
+    const response = await uploadFile(file)
+    
+    // 上传成功后，在输入框中添加文件引用
+    const fileInfo = response.data
+    inputMessage.value += `\n[已上传文件: ${fileInfo.fileName}]`
+    ElMessage.success('文件上传成功')
+    
+    // 清空file input
+    event.target.value = ''
+  } catch (error) {
+    console.error('文件上传失败:', error)
+    ElMessage.error('文件上传失败: ' + (error.message || '未知错误'))
+  }
+}
+
+const handleSendMessage = async () => {
   const content = inputMessage.value.trim()
   if (!content) return
 
@@ -380,26 +404,34 @@ const handleSendMessage = () => {
   const usedAgent = currentAgent.value
   const useDeepThink = isDeepThinkActive.value
   
-  currentAgent.value = null // Reset agent after sending
+  currentAgent.value = null
   inputMessage.value = ''
   showAgentList.value = false
   isTyping.value = true
   
-  // Simulate AI response
-  setTimeout(() => {
-    let responseContent = `这里是模拟的智能回复。`
-    if (usedAgent) {
-      responseContent = `【${usedAgent.name}】正在为您服务...\n\n针对您的问题：${content}，我有以下建议...`
-    } else {
-      responseContent += `你刚刚说了：${content}`
+  try {
+    // 调用后端API发送消息
+    const response = await sendMessage({
+      chatId: currentChatId.value,
+      content: content,
+      agentType: usedAgent?.id,
+      useDeepThink: useDeepThink
+    })
+    
+    // 如果是新会话，保存chatId
+    if (!currentChatId.value && response.data.chatId) {
+      currentChatId.value = response.data.chatId
+      // 刷新聊天列表
+      loadChatList()
     }
-
+    
+    // 添加AI回复
     messages.value.push({
       role: 'ai',
-      content: responseContent,
+      content: response.data.content || response.data.reply || '抱歉，我没有理解您的问题',
       agent: usedAgent,
       deepThink: useDeepThink,
-      keywords: content.slice(0, 5)
+      messageId: response.data.messageId
     })
     
     isTyping.value = false
@@ -411,33 +443,55 @@ const handleSendMessage = () => {
         container.scrollTop = container.scrollHeight
       }
     })
-  }, 1500)
+  } catch (error) {
+    console.error('发送消息失败:', error)
+    ElMessage.error(error.response?.data?.message || '发送消息失败，请重试')
+    isTyping.value = false
+    // 移除用户消息
+    messages.value.pop()
+  }
 }
 
 const formatMessage = (content) => {
   return content.replace(/\n/g, '<br>')
 }
 
-const handleChatOptionCommand = (command) => {
-  const actions = {
-    pin: '已置顶',
-    share: '分享链接已复制',
-    collect: '已收藏',
-    bookmark: '已添加书签',
-    rename: '重命名',
-    report: '举报已提交',
-    delete: '删除成功'
+const handleChatOptionCommand = async (command, chatId) => {
+  if (command === 'delete') {
+    handleDeleteChat(chatId)
+  } else if (command === 'share') {
+    try {
+      const response = await shareChat(chatId)
+      const shareUrl = `${window.location.origin}/share/${response.data.shareId}`
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        ElMessage.success('分享链接已复制到剪贴板')
+      })
+    } catch (error) {
+      ElMessage.error('分享失败')
+    }
+  } else if (command === 'rename') {
+    ElMessage.info('重命名功能开发中')
   }
-  ElMessage.success(actions[command] || '操作成功')
 }
 
-const handleShareChat = () => {
-  const shareUrl = window.location.href
-  navigator.clipboard.writeText(shareUrl).then(() => {
-    ElMessage.success('链接已复制到剪贴板')
-  }).catch(() => {
-    ElMessage.error('复制失败，请手动复制')
-  })
+const handleShareChat = async () => {
+  if (!currentChatId.value) {
+    ElMessage.warning('请先选择一个对话')
+    return
+  }
+  
+  try {
+    const response = await shareChat(currentChatId.value)
+    const shareUrl = `${window.location.origin}/share/${response.data.shareId}`
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      ElMessage.success('分享链接已复制到剪贴板')
+    }).catch(() => {
+      ElMessage.error('复制失败，请手动复制')
+    })
+  } catch (error) {
+    console.error('分享失败:', error)
+    ElMessage.error('分享失败')
+  }
 }
 
 const handleScreenshot = () => {
@@ -498,9 +552,100 @@ const handleDislike = (index) => {
 
 const handleShareMessage = (content) => {
   navigator.clipboard.writeText(content).then(() => {
-    ElMessage.success('内容已复制，可以粘贴分享')
+    ElMessage.success('已复制到剪贴板')
   })
 }
+
+// 加载聊天列表
+const loadChatList = async () => {
+  try {
+    chatListLoading.value = true
+    const response = await getChatList({ page: 1, size: 20 })
+    // 后端返回的data直接是数组，不是分页对象
+    const chatList = Array.isArray(response.data) ? response.data : []
+    recentChats.value = chatList.map(chat => ({
+      id: chat.id,
+      title: chat.title || '新对话',
+      updateTime: chat.updateTime
+    }))
+  } catch (error) {
+    console.error('加载聊天列表失败:', error)
+    recentChats.value = []
+  } finally {
+    chatListLoading.value = false
+  }
+}
+
+// 加载聊天详情
+const loadChatDetail = async (chatId) => {
+  try {
+    const response = await getChatDetail(chatId)
+    currentChatId.value = chatId
+    
+    // 转换消息格式
+    messages.value = response.data.messages.map(msg => ({
+      role: msg.role === 'user' ? 'user' : 'ai',
+      content: msg.content,
+      messageId: msg.id,
+      createTime: msg.createTime
+    }))
+    
+    // 滚动到底部
+    nextTick(() => {
+      const container = document.querySelector('.chat-content')
+      if (container) {
+        container.scrollTop = container.scrollHeight
+      }
+    })
+  } catch (error) {
+    console.error('加载聊天详情失败:', error)
+    ElMessage.error('加载聊天记录失败')
+  }
+}
+
+// 创建新对话
+const handleNewChat = () => {
+  currentChatId.value = null
+  messages.value = []
+  ElMessage.success('已创建新对话')
+}
+
+// 删除对话
+const handleDeleteChat = async (chatId) => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要删除这条对话吗？删除后无法恢复。',
+      '确认删除',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    await deleteChat(chatId)
+    ElMessage.success('删除成功')
+    
+    // 刷新列表
+    loadChatList()
+    
+    // 如果删除的是当前对话，清空消息
+    if (currentChatId.value === chatId) {
+      currentChatId.value = null
+      messages.value = []
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除对话失败:', error)
+      ElMessage.error('删除失败')
+    }
+  }
+}
+
+// 页面加载时获取聊天列表
+onMounted(() => {
+  loadChatList()
+})
 </script>
 
 <style scoped>
@@ -659,6 +804,23 @@ const handleShareMessage = (content) => {
   background-color: #e2e8f0;
   transform: translateX(4px);
   color: #0f172a;
+}
+
+.chat-item.is-active {
+  background-color: #ddd6fe;
+  color: #7c3aed;
+  font-weight: 500;
+}
+
+.chat-item.is-active:hover {
+  background-color: #c4b5fd;
+}
+
+.empty-chat-list {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 14px;
+  padding: 40px 20px;
 }
 
 .chat-item-content {

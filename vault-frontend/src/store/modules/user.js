@@ -4,7 +4,7 @@
 
 import { defineStore } from 'pinia'
 import { getToken, setToken, removeToken, getUserInfo, setUserInfo, removeUserInfo } from '@/utils/auth'
-import { login as loginApi, getCurrentUser } from '@/api/auth'
+import { login as loginApi, getCurrentUser, uploadAvatar as uploadAvatarApi } from '@/api/auth'
 
 export const useUserStore = defineStore('user', {
   state: () => ({
@@ -26,6 +26,7 @@ export const useUserStore = defineStore('user', {
     async login(loginForm) {
       try {
         const response = await loginApi(loginForm)
+        // response 结构: { code: 200, message: "登录成功", data: { token, userInfo } }
         this.token = response.data.token
         this.userInfo = response.data.userInfo
         setToken(this.token)
@@ -67,12 +68,17 @@ export const useUserStore = defineStore('user', {
     },
     
     /**
-     * 更新头像
+     * 更新头像（上传到服务器）
      */
-    updateAvatar(avatarUrl) {
-      if (this.userInfo) {
-        this.userInfo = { ...this.userInfo, avatar: avatarUrl }
+    async updateAvatar(file) {
+      try {
+        const response = await uploadAvatarApi(file)
+        // 更新本地用户信息
+        this.userInfo = { ...this.userInfo, avatar: response.data.avatar }
         setUserInfo(this.userInfo)
+        return Promise.resolve(response)
+      } catch (error) {
+        return Promise.reject(error)
       }
     },
 

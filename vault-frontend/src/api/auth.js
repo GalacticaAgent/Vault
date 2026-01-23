@@ -35,11 +35,42 @@ export function testApi() {
 }
 
 /**
- * 获取当前用户信息（占位符，后续实现）
+ * 获取当前用户信息
  */
 export function getCurrentUser() {
   return request({
-    url: '/auth/current',
+    url: '/user/info',
     method: 'get'
   })
 }
+
+/**
+ * 更新用户信息
+ * @param {Object} data - 用户信息 { nickname, email, avatar }
+ */
+export function updateUserInfo(data) {
+  return request({
+    url: '/user/info',
+    method: 'put',
+    data
+  })
+}
+
+/**
+ * 上传用户头像
+ * @param {File} file - 头像文件
+ */
+export function uploadAvatar(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  
+  return request({
+    url: '/user/avatar',
+    method: 'post',
+    data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+}
+

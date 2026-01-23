@@ -1,10 +1,19 @@
 package com.vault.service.chat;
 
+import com.vault.service.ai.EmbeddingService;
+import io.milvus.client.MilvusServiceClient;
+import io.milvus.param.dml.InsertParam;
+import io.milvus.param.dml.SearchParam;
+import io.milvus.grpc.SearchResults;
+import io.milvus.response.SearchResultsWrapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -15,17 +24,17 @@ import java.util.List;
 @Service
 public class RAGService {
     
-    @Value("${vault.milvus.host:localhost}")
-    private String milvusHost;
+    @Autowired(required = false)
+    private MilvusServiceClient milvusClient;
     
-    @Value("${vault.milvus.port:19530}")
-    private int milvusPort;
+    @Autowired
+    private EmbeddingService embeddingService;
     
-    @Value("${vault.embedding.model:text-embedding-ada-002}")
-    private String embeddingModel;
+    @Value("${vault.milvus.collection:vault_materials}")
+    private String collectionName;
     
-    // 这里应该注入Milvus客户端
-    // private MilvusClient milvusClient;
+    @Value("${vault.milvus.search-params:16}")
+    private int searchNProbe;
     
     /**
      * 搜索相关资料
@@ -35,10 +44,16 @@ public class RAGService {
         
         try {
             // 1. 将查询转换为向量
-            float[] queryVector = getEmbedding(query);
+            float[] queryVector = embeddingService.getEmbedding(query);
             
             // 2. 在Milvus中进行向量检索
-            List<RAGSearchResult.TextChunk> chunks = searchVectors(queryVector, topK);
+            List<RAGSearchResult.TextChunk> chunks;
+            if (milvusClient != null) {
+                chunks = searchVectorsInMilvus(queryVector, topK);
+            } else {
+                log.warn("Milvus 未连接，使用模拟数据");
+                chunks = searchVectorsMock(queryVector, topK);
+            }
             
             // 3. 构建结果
             RAGSearchResult result = new RAGSearchResult();
@@ -52,42 +67,94 @@ public class RAGService {
             
         } catch (Exception e) {
             log.error("RAG search failed for query: {}", query, e);
-            throw new RuntimeException("RAG search failed", e);
+            // 失败时返回空结果而不是抛出异常
+            RAGSearchResult result = new RAGSearchResult();
+            result.setChunks(new ArrayList<>());
+            result.setSearchTime(System.currentTimeMillis() - startTime);
+            return result;
         }
     }
     
     /**
-     * 获取文本的向量表示
+     * 在 Milvus 中检索向量
      */
-    private float[] getEmbedding(String text) {
-        // 这里应该调用OpenAI Embedding API或其他embedding服务
-        // 简化处理：返回模拟向量
-        float[] vector = new float[1536]; // OpenAI embedding维度
-        for (int i = 0; i < vector.length; i++) {
-            vector[i] = (float) Math.random();
+    private List<RAGSearchResult.TextChunk> searchVectorsInMilvus(float[] queryVector, int topK) {
+        try {
+            // 构建搜索参数
+            String searchParamStr = String.format("{\"nprobe\":%d}", searchNProbe);
+            
+            SearchParam searchParam = SearchParam.newBuilder()
+                    .withCollectionName(collectionName)
+                    .withVectorFieldName("embedding")
+                    .withVectors(Collections.singletonList(queryVector))
+                    .withTopK(topK)
+                    .withParams(searchParamStr)
+                    .withOutFields(Arrays.asList(
+                            "material_id",
+                            "material_name",
+                            "chapter",
+                            "content",
+                            "position"
+                    ))
+                    .build();
+            
+            // 执行搜索
+            io.milvus.common.clientenum.ConsistencyLevelEnum consistencyLevel = 
+                    io.milvus.common.clientenum.ConsistencyLevelEnum.STRONG;
+            
+            io.milvus.grpc.SearchResults response = milvusClient.search(searchParam).getData();
+            
+            // 解析结果
+            SearchResultsWrapper wrapper = new SearchResultsWrapper(response.getResults());
+            List<RAGSearchResult.TextChunk> chunks = new ArrayList<>();
+            
+            for (int i = 0; i < wrapper.getIDScore(0).size(); i++) {
+                RAGSearchResult.TextChunk chunk = new RAGSearchResult.TextChunk();
+                
+                // 从字段中提取数据
+                List<?> materialIds = (List<?>) wrapper.getFieldData("material_id", 0);
+                List<?> materialNames = (List<?>) wrapper.getFieldData("material_name", 0);
+                List<?> chapters = (List<?>) wrapper.getFieldData("chapter", 0);
+                List<?> contents = (List<?>) wrapper.getFieldData("content", 0);
+                List<?> positions = (List<?>) wrapper.getFieldData("position", 0);
+                
+                chunk.setMaterialId(Long.parseLong(materialIds.get(i).toString()));
+                chunk.setMaterialName(materialNames.get(i).toString());
+                chunk.setChapter(chapters.get(i).toString());
+                chunk.setContent(contents.get(i).toString());
+                chunk.setPosition(Integer.parseInt(positions.get(i).toString()));
+                double score = wrapper.getIDScore(0).get(i).getScore();
+                chunk.setScore(score);
+                chunk.setVectorId(String.valueOf(wrapper.getIDScore(0).get(i).getLongID()));
+                
+                chunks.add(chunk);
+            }
+            
+            log.debug("从 Milvus 检索到 {} 条结果", chunks.size());
+            return chunks;
+            
+        } catch (Exception e) {
+            log.error("Milvus 检索失败，使用模拟数据", e);
+            return searchVectorsMock(queryVector, topK);
         }
-        return vector;
     }
     
     /**
-     * 在向量数据库中检索
+     * 模拟向量检索（用于 Milvus 未连接时）
      */
-    private List<RAGSearchResult.TextChunk> searchVectors(float[] queryVector, int topK) {
-        // 实际实现应该调用Milvus API
-        // 这里返回模拟数据
-        
+    private List<RAGSearchResult.TextChunk> searchVectorsMock(float[] queryVector, int topK) {
         List<RAGSearchResult.TextChunk> chunks = new ArrayList<>();
         
-        // 模拟检索结果
-        for (int i = 0; i < Math.min(topK, 5); i++) {
+        // 返回模拟数据
+        for (int i = 0; i < Math.min(topK, 3); i++) {
             RAGSearchResult.TextChunk chunk = new RAGSearchResult.TextChunk();
             chunk.setMaterialId(1L);
             chunk.setMaterialName("操作系统原理");
-            chunk.setChapter("第" + (i + 1) + "章");
-            chunk.setContent("这是一段示例内容...");
+            chunk.setChapter("第" + (i + 1) + "章 - 进程管理");
+            chunk.setContent("这是一段关于" + (i == 0 ? "进程概念" : i == 1 ? "进程调度" : "进程同步") + "的示例内容...");
             chunk.setScore(0.9 - i * 0.1);
             chunk.setPosition(i * 100);
-            chunk.setVectorId("vec_" + i);
+            chunk.setVectorId("mock_vec_" + i);
             chunks.add(chunk);
         }
         
@@ -95,27 +162,84 @@ public class RAGService {
     }
     
     /**
-     * 索引新的文本内容
+     * 索引新的文本内容到 Milvus
      */
     public void indexText(Long materialId, String materialName, String content) {
         try {
-            // 1. 分块
-            List<String> chunks = splitText(content);
-            
-            // 2. 生成向量
-            List<float[]> vectors = new ArrayList<>();
-            for (String chunk : chunks) {
-                vectors.add(getEmbedding(chunk));
+            if (milvusClient == null) {
+                log.warn("Milvus 未连接，跳过索引");
+                return;
             }
             
-            // 3. 插入Milvus
-            // insertToMilvus(materialId, materialName, chunks, vectors);
+            // 1. 分块
+            List<String> chunks = splitText(content);
+            log.info("文本分块完成，共 {} 块", chunks.size());
             
-            log.info("Indexed {} chunks for material: {}", chunks.size(), materialName);
+            // 2. 生成向量
+            List<float[]> vectors = embeddingService.getEmbeddings(chunks);
+            log.info("向量生成完成，共 {} 个向量", vectors.size());
+            
+            // 3. 插入 Milvus
+            insertToMilvus(materialId, materialName, chunks, vectors);
+            
+            log.info("成功索引 {} 个文本块到 Milvus，教材: {}", chunks.size(), materialName);
             
         } catch (Exception e) {
-            log.error("Failed to index text for material: {}", materialId, e);
+            log.error("索引文本失败，教材ID: {}", materialId, e);
             throw new RuntimeException("Text indexing failed", e);
+        }
+    }
+    
+    /**
+     * 插入数据到 Milvus
+     */
+    private void insertToMilvus(Long materialId, String materialName, 
+                                List<String> chunks, List<float[]> vectors) {
+        try {
+            List<Long> materialIds = new ArrayList<>();
+            List<String> materialNames = new ArrayList<>();
+            List<String> chapters = new ArrayList<>();
+            List<String> contents = new ArrayList<>();
+            List<Long> positions = new ArrayList<>();
+            List<List<Float>> embeddings = new ArrayList<>();
+            
+            for (int i = 0; i < chunks.size(); i++) {
+                materialIds.add(materialId);
+                materialNames.add(materialName);
+                chapters.add("第" + ((i / 10) + 1) + "章"); // 简单的章节划分
+                contents.add(chunks.get(i));
+                positions.add((long) (i * 500)); // 每块500字符
+                
+                // 转换 float[] 为 List<Float>
+                List<Float> vectorList = new ArrayList<>();
+                for (float v : vectors.get(i)) {
+                    vectorList.add(v);
+                }
+                embeddings.add(vectorList);
+            }
+            
+            // 构建插入参数
+            List<InsertParam.Field> fields = new ArrayList<>();
+            fields.add(new InsertParam.Field("material_id", materialIds));
+            fields.add(new InsertParam.Field("material_name", materialNames));
+            fields.add(new InsertParam.Field("chapter", chapters));
+            fields.add(new InsertParam.Field("content", contents));
+            fields.add(new InsertParam.Field("position", positions));
+            fields.add(new InsertParam.Field("embedding", embeddings));
+            
+            InsertParam insertParam = InsertParam.newBuilder()
+                    .withCollectionName(collectionName)
+                    .withFields(fields)
+                    .build();
+            
+            // 执行插入
+            milvusClient.insert(insertParam);
+            
+            log.info("成功插入 {} 条记录到 Milvus（数据将自动持久化）", chunks.size());
+            
+        } catch (Exception e) {
+            log.error("插入 Milvus 失败", e);
+            throw new RuntimeException("Failed to insert to Milvus", e);
         }
     }
     
@@ -146,10 +270,25 @@ public class RAGService {
      */
     public void deleteIndex(Long materialId) {
         try {
-            // 从Milvus删除该资料的所有向量
-            log.info("Deleted index for material: {}", materialId);
+            if (milvusClient == null) {
+                log.warn("Milvus 未连接，跳过删除");
+                return;
+            }
+            
+            // 构建删除表达式
+            String expr = String.format("material_id == %d", materialId);
+            
+            io.milvus.param.dml.DeleteParam deleteParam = io.milvus.param.dml.DeleteParam.newBuilder()
+                    .withCollectionName(collectionName)
+                    .withExpr(expr)
+                    .build();
+            
+            milvusClient.delete(deleteParam);
+            
+            log.info("成功删除教材 {} 的向量索引", materialId);
+            
         } catch (Exception e) {
-            log.error("Failed to delete index for material: {}", materialId, e);
+            log.error("删除向量索引失败，教材ID: {}", materialId, e);
         }
     }
     

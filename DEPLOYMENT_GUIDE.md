@@ -10,12 +10,46 @@
 - MySQL 8.0+
 - Redis 7.x
 - Elasticsearch 8.x
+- **Milvus 2.3+ (可选，用于 RAG 功能)**
+- **Docker Desktop (推荐，用于运行 Milvus)**
 
 ### 前端
 - Node.js 16+
 - npm 或 pnpm
 
 ## 部署步骤
+
+### 0. 启动 Milvus（可选但推荐）
+
+#### 使用 Docker 启动 Milvus
+
+**Windows:**
+
+```powershell
+# 运行启动脚本
+.\start-milvus.ps1
+```
+
+或手动启动：
+
+```powershell
+docker-compose -f docker-compose-milvus.yml up -d
+```
+
+**验证 Milvus 运行:**
+
+```powershell
+docker-compose -f docker-compose-milvus.yml ps
+```
+
+应看到 3 个容器在运行：
+- milvus-standalone (端口 19530)
+- milvus-etcd
+- milvus-minio (端口 9000, 9001)
+
+**配置说明:**
+- 如果不启动 Milvus，系统会使用模拟数据（仍可运行但 RAG 功能受限）
+- 详细安装指南参见: [MILVUS_SETUP.md](MILVUS_SETUP.md)
 
 ### 1. 数据库初始化
 
