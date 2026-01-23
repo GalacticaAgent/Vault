@@ -76,10 +76,17 @@
     <el-card class="dashboard-card chart-card" shadow="hover">
       <div class="card-header-wrapper">
         <div class="card-title">学习投入趋势</div>
-        <el-radio-group v-model="timeRange" size="small">
-          <el-radio-button label="week">本周</el-radio-button>
-          <el-radio-button label="month">本月</el-radio-button>
-        </el-radio-group>
+        <div class="chart-controls">
+          <el-select v-model="chartType" size="small" style="width: 100px; margin-right: 8px">
+            <el-option label="柱状图" value="bar" />
+            <el-option label="折线图" value="line" />
+            <el-option label="面积图" value="area" />
+          </el-select>
+          <el-radio-group v-model="timeRange" size="small">
+            <el-radio-button label="week">本周</el-radio-button>
+            <el-radio-button label="month">本月</el-radio-button>
+          </el-radio-group>
+        </div>
       </div>
       <div class="chart-container">
         <v-chart class="chart" :option="chartOption" autoresize />
@@ -209,20 +216,25 @@
             </div>
           </template>
           <div class="assignment-list">
-            <div v-for="(assign, index) in assignments" :key="index" class="assignment-item">
+            <div v-for="questionnaire in pendingQuestionnaires" :key="questionnaire.id" class="assignment-item">
               <div class="assign-left">
                 <div class="assign-icon">
                   <el-icon><EditPen /></el-icon>
                 </div>
                 <div class="assign-info">
-                  <div class="assign-title">{{ assign.title }}</div>
+                  <div class="assign-title">{{ questionnaire.title }}</div>
                   <div class="assign-meta">
-                    <span class="course-tag">{{ assign.course }}</span>
-                    <span class="due-date" :class="{ urgent: assign.isUrgent }">截止: {{ assign.dueDate }}</span>
+                    <span class="course-tag">总分: {{ questionnaire.totalScore }}分</span>
+                    <span class="due-date" :class="{ urgent: questionnaire.isUrgent }">
+                      截止: {{ formatDeadline(questionnaire.deadline) }}
+                    </span>
                   </div>
                 </div>
               </div>
               <el-button type="primary" plain round size="small">去完成</el-button>
+            </div>
+            <div v-if="pendingQuestionnaires.length === 0" class="empty-state">
+              <p>暂无待完成问卷</p>
             </div>
           </div>
         </el-card>
@@ -267,7 +279,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { 
   Timer, 
   Calendar, 
@@ -310,6 +322,7 @@ const userStore = useUserStore()
 const loading = ref(false)
 const dashboardData = ref(null)
 const timeRange = ref('week')
+const chartType = ref('bar') // 图表类型：bar-柱状图, line-折线图, area-面积图
 
 // 基本信息
 const basicStats = computed(() => dashboardData.value?.basicStats || {})
@@ -378,10 +391,84 @@ const chartOption = computed(() => {
   const xAxisData = days.length > 0 ? days : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
   const seriesData = hours.length > 0 ? hours : [2.5, 4.0, 3.2, 5.5, 3.8, 6.0, 4.5]
   
+  // 根据图表类型配置不同的series
+  let seriesConfig = {}
+  
+  if (chartType.value === 'bar') {
+    // 柱状图配置
+    seriesConfig = {
+      type: 'bar',
+      barWidth: '40%',
+      itemStyle: {
+        color: '#8b5cf6',
+        borderRadius: [4, 4, 0, 0]
+      },
+      emphasis: {
+        itemStyle: { color: '#7c3aed' }
+      }
+    }
+  } else if (chartType.value === 'line') {
+    // 折线图配置
+    seriesConfig = {
+      type: 'line',
+      smooth: true,
+      symbol: 'circle',
+      symbolSize: 8,
+      lineStyle: {
+        color: '#8b5cf6',
+        width: 3
+      },
+      itemStyle: {
+        color: '#8b5cf6',
+        borderWidth: 2,
+        borderColor: '#fff'
+      },
+      emphasis: {
+        itemStyle: { 
+          color: '#7c3aed',
+          borderColor: '#fff'
+        }
+      }
+    }
+  } else if (chartType.value === 'area') {
+    // 面积图配置
+    seriesConfig = {
+      type: 'line',
+      smooth: true,
+      symbol: 'circle',
+      symbolSize: 6,
+      lineStyle: {
+        color: '#8b5cf6',
+        width: 2
+      },
+      itemStyle: {
+        color: '#8b5cf6'
+      },
+      areaStyle: {
+        color: {
+          type: 'linear',
+          x: 0,
+          y: 0,
+          x2: 0,
+          y2: 1,
+          colorStops: [
+            { offset: 0, color: 'rgba(139, 92, 246, 0.4)' },
+            { offset: 1, color: 'rgba(139, 92, 246, 0.05)' }
+          ]
+        }
+      },
+      emphasis: {
+        itemStyle: { color: '#7c3aed' }
+      }
+    }
+  }
+  
   return {
     tooltip: {
       trigger: 'axis',
-      axisPointer: { type: 'shadow' }
+      axisPointer: { 
+        type: chartType.value === 'bar' ? 'shadow' : 'line'
+      }
     },
     grid: {
       left: '3%',
@@ -406,16 +493,8 @@ const chartOption = computed(() => {
     series: [
       {
         name: '学习时长 (h)',
-        type: 'bar',
-        barWidth: '40%',
         data: seriesData,
-        itemStyle: {
-          color: '#8b5cf6',
-          borderRadius: [4, 4, 0, 0]
-        },
-        emphasis: {
-          itemStyle: { color: '#7c3aed' }
-        }
+        ...seriesConfig
       }
     ]
   }
@@ -427,26 +506,8 @@ const getProgressColor = (score) => {
   return '#10b981'
 }
 
-const assignments = [
-  { 
-    title: 'Lab 3: 内存管理实现', 
-    course: '操作系统', 
-    dueDate: '明天 23:59', 
-    isUrgent: true 
-  },
-  { 
-    title: '期中复习测验', 
-    course: '计算机网络', 
-    dueDate: '下周一 12:00', 
-    isUrgent: false 
-  },
-  {
-    title: '数据库设计文档',
-    course: '数据库系统',
-    dueDate: '2024-05-20',
-    isUrgent: false
-  }
-]
+// 待完成问卷 - 从后端获取
+const pendingQuestionnaires = computed(() => dashboardData.value?.pendingQuestionnaires || [])
 
 // 自定义卡片相关
 const addCardDialogVisible = ref(false)
@@ -528,17 +589,39 @@ const deleteCard = async (cardId) => {
 // 格式化卡片内容
 const formatCardContent = (content) => {
   if (!content) return '暂无数据'
-  // 如果内容是数组，格式化为列表
-  if (Array.isArray(content)) {
-    return content.join('\n')
+  
+  try {
+    // 尝试解析JSON
+    const jsonData = typeof content === 'string' ? JSON.parse(content) : content
+    
+    // 根据数据类型格式化
+    if (jsonData.type === 'knowledge_points' && jsonData.data) {
+      return jsonData.data.map(item => 
+        `${item.name}: ${Math.round(item.proficiency * 100)}% (错题: ${item.wrongCount}次)`
+      ).join('\n')
+    } else if (jsonData.type === 'study_time' && jsonData.data) {
+      return `总学习时长: ${jsonData.data.totalHours}小时\n` +
+             `周平均: ${jsonData.data.weeklyAverage}小时\n` +
+             `趋势: ${jsonData.data.trend}`
+    } else if (jsonData.type === 'scores' && jsonData.data) {
+      return `平均分: ${jsonData.data.average}\n` +
+             `最高分: ${jsonData.data.highest}\n` +
+             `最低分: ${jsonData.data.lowest}\n` +
+             `排名: ${jsonData.data.rank}`
+    } else if (jsonData.type === 'materials' && jsonData.data) {
+      return jsonData.data.map(item => 
+        `${item.title} (下载: ${item.downloadCount}次)`
+      ).join('\n')
+    } else if (jsonData.type === 'custom') {
+      return `${jsonData.message}\n查询: ${jsonData.query}`
+    } else {
+      // 默认格式化
+      return JSON.stringify(jsonData, null, 2)
+    }
+  } catch (e) {
+    // 如果不是JSON，直接返回
+    return content
   }
-  // 如果内容是对象，格式化为键值对
-  if (typeof content === 'object') {
-    return Object.entries(content)
-      .map(([key, value]) => `${key}: ${value}`)
-      .join('\n')
-  }
-  return content
 }
 
 // 格式化时间
@@ -568,14 +651,44 @@ const formatTime = (timestamp) => {
   return date.toLocaleDateString()
 }
 
+// 格式化截止时间
+const formatDeadline = (deadline) => {
+  if (!deadline) return ''
+  const date = new Date(deadline)
+  const now = new Date()
+  const diff = date - now
+  
+  // 已过期
+  if (diff < 0) {
+    return '已过期'
+  }
+  // 小于1小时
+  if (diff < 3600000) {
+    return `${Math.ceil(diff / 60000)}分钟后`
+  }
+  // 小于24小时
+  if (diff < 86400000) {
+    const hours = Math.ceil(diff / 3600000)
+    return `${hours}小时后`
+  }
+  // 小于7天
+  if (diff < 604800000) {
+    const days = Math.ceil(diff / 86400000)
+    return `${days}天后`
+  }
+  // 超过7天显示完整日期
+  return date.toLocaleDateString() + ' ' + date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+}
+
 // 加载看板数据
 const loadDashboard = async () => {
   try {
     loading.value = true
-    const response = await getStudentDashboard()
+    const response = await getStudentDashboard({ timeRange: timeRange.value })
     dashboardData.value = response.data
     console.log('Dashboard data loaded:', dashboardData.value)
     console.log('Study trends:', dashboardData.value?.studyTrends)
+    console.log('Time range:', timeRange.value)
   } catch (error) {
     console.error('加载看板数据失败:', error)
     ElMessage.error('加载看板数据失败')
@@ -583,6 +696,12 @@ const loadDashboard = async () => {
     loading.value = false
   }
 }
+
+// 监听时间范围变化，重新加载数据
+watch(timeRange, () => {
+  console.log('Time range changed to:', timeRange.value)
+  loadDashboard()
+})
 
 // 页面加载时获取数据
 onMounted(async () => {
@@ -701,6 +820,11 @@ onMounted(async () => {
   align-items: center;
   padding: 16px 20px;
   flex-shrink: 0;
+}
+
+.chart-controls {
+  display: flex;
+  align-items: center;
 }
 
 .chart-container {

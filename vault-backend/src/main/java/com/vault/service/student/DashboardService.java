@@ -31,9 +31,10 @@ public interface DashboardService {
      * 9. 自定义卡片列表
      *
      * @param userId 当前登录用户ID（从Spring Security上下文获取）
+     * @param timeRange 时间范围：week-本周, month-本月
      * @return DashboardResponse 看板数据
      */
-    DashboardResponse getDashboardData(Long userId);
+    DashboardResponse getDashboardData(Long userId, String timeRange);
 
     /**
      * 添加自定义看板卡片

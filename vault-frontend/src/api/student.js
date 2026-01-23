@@ -8,11 +8,14 @@ import request from './request'
 
 /**
  * 获取学生看板数据
+ * @param {Object} params - 查询参数
+ * @param {string} params.timeRange - 时间范围: week-本周, month-本月
  */
-export function getStudentDashboard() {
+export function getStudentDashboard(params) {
   return request({
     url: '/student/dashboard',
-    method: 'get'
+    method: 'get',
+    params
   })
 }
 

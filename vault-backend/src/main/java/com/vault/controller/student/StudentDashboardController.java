@@ -119,16 +119,19 @@ public class StudentDashboardController {
         description = "获取学生的综合看板数据，包括统计信息、学习进度、成绩分析、近期活动和自定义卡片"
     )
     @GetMapping
-    public Result<DashboardResponse> getDashboard() {
+    public Result<DashboardResponse> getDashboard(
+            @Parameter(description = "时间范围：week-本周, month-本月")
+            @RequestParam(required = false, defaultValue = "week") String timeRange
+    ) {
         try {
-            log.info("开始获取学生看板数据");
+            log.info("开始获取学生看板数据，时间范围: {}", timeRange);
 
             // 从Spring Security上下文获取当前登录的用户ID
             Long userId = SecurityUtil.getCurrentUserId();
             log.info("当前登录用户ID: {}", userId);
 
             // 调用服务层获取看板数据
-            DashboardResponse response = dashboardService.getDashboardData(userId);
+            DashboardResponse response = dashboardService.getDashboardData(userId, timeRange);
 
             log.info("成功获取学生看板数据");
             return Result.success("获取看板数据成功", response);

@@ -6,11 +6,15 @@ import com.vault.dto.response.DashboardCardResponse;
 import com.vault.dto.response.DashboardResponse;
 import com.vault.entity.mysql.Chat;
 import com.vault.entity.mysql.DashboardCard;
+import com.vault.entity.mysql.Questionnaire;
+import com.vault.entity.mysql.QuestionnaireSubmission;
 import com.vault.entity.mysql.Student;
 import com.vault.entity.mysql.User;
 import com.vault.exception.BusinessException;
 import com.vault.mapper.ChatMapper;
 import com.vault.mapper.DashboardCardMapper;
+import com.vault.mapper.QuestionnaireMapper;
+import com.vault.mapper.QuestionnaireSubmissionMapper;
 import com.vault.mapper.StudentMapper;
 import com.vault.mapper.UserMapper;
 import com.vault.service.student.DashboardService;
@@ -20,6 +24,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -42,10 +47,12 @@ public class DashboardServiceImpl implements DashboardService {
     private final StudentMapper studentMapper;
     private final ChatMapper chatMapper;
     private final DashboardCardMapper dashboardCardMapper;
+    private final QuestionnaireMapper questionnaireMapper;
+    private final QuestionnaireSubmissionMapper questionnaireSubmissionMapper;
 
     @Override
-    public DashboardResponse getDashboardData(Long userId) {
-        log.info("开始获取学生看板数据, userId={}", userId);
+    public DashboardResponse getDashboardData(Long userId, String timeRange) {
+        log.info("开始获取学生看板数据, userId={}, timeRange={}", userId, timeRange);
 
         try {
             // 1. 查询学生信息
@@ -57,7 +64,7 @@ public class DashboardServiceImpl implements DashboardService {
 
             // 2. 构建看板数据（简化版 - 仅包含基本信息、对话和自定义卡片）
             DashboardResponse dashboard = DashboardResponse.builder()
-                    .basicStats(buildBasicStats(student, userId))
+                    .basicStats(buildBasicStats(student, userId, timeRange))
                     .questionnaireStats(buildEmptyQuestionnaireStats())
                     .scoreAnalysis(buildEmptyScoreAnalysis())
                     .rankInfo(buildMockRankInfo())
@@ -66,11 +73,12 @@ public class DashboardServiceImpl implements DashboardService {
                     .recommendedMaterials(Collections.emptyList())
                     .recentActivities(buildRecentActivities(userId))
                     .customCards(buildCustomCards(userId))
-                    .studyTrends(buildMockStudyTrends())
+                    .studyTrends(buildMockStudyTrends(timeRange))
                     .currentLearningProgress(buildMockCurrentLearningProgress())
+                    .pendingQuestionnaires(buildPendingQuestionnaires(student.getId()))
                     .build();
 
-            log.info("成功获取学生看板数据, userId={}, studentId={}", userId, student.getId());
+            log.info("成功获取学生看板数据, userId={}, studentId={}, timeRange={}", userId, student.getId(), timeRange);
             return dashboard;
 
         } catch (Exception e) {
@@ -91,7 +99,7 @@ public class DashboardServiceImpl implements DashboardService {
     /**
      * 构建基本统计信息
      */
-    private DashboardResponse.BasicStats buildBasicStats(Student student, Long userId) {
+    private DashboardResponse.BasicStats buildBasicStats(Student student, Long userId, String timeRange) {
         // 查询用户信息获取昵称
         User user = userMapper.selectById(userId);
 
@@ -104,6 +112,10 @@ public class DashboardServiceImpl implements DashboardService {
             tags.add("成绩优秀");
         }
 
+        // 根据时间范围计算学习时长
+        double studyHours = "month".equals(timeRange) ? 48.5 : 12.5;
+        int activeDays = "month".equals(timeRange) ? 22 : 5;
+
         return DashboardResponse.BasicStats.builder()
                 .name(user != null ? user.getNickname() : null)
                 .studentNumber(student.getStudentNumber())
@@ -112,8 +124,8 @@ public class DashboardServiceImpl implements DashboardService {
                 .className(student.getClassName())
                 .currentCourse("操作系统")  // 后续可从课程表获取
                 .tags(tags)
-                .weeklyStudyHours(12.5)  // 模拟数据，后续可从学习记录表统计
-                .continuousActiveDays(5)  // 模拟数据，后续可从登录记录表统计
+                .weeklyStudyHours(studyHours)
+                .continuousActiveDays(activeDays)
                 .overallRankPercentile("Top 15%")  // 模拟数据，后续可从排名缓存获取
                 .totalQuestions(student.getTotalQuestions() != null ? student.getTotalQuestions() : 0)
                 .totalScores(student.getTotalScores() != null ? student.getTotalScores() : BigDecimal.ZERO)
@@ -202,18 +214,39 @@ public class DashboardServiceImpl implements DashboardService {
     /**
      * 构建模拟学习投入趋势（用于演示）
      */
-    private List<DashboardResponse.StudyTrend> buildMockStudyTrends() {
+    private List<DashboardResponse.StudyTrend> buildMockStudyTrends(String timeRange) {
         List<DashboardResponse.StudyTrend> trends = new ArrayList<>();
-        String[] days = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
-        double[] hours = {2.5, 4.0, 3.2, 5.5, 3.8, 6.0, 4.5};
         
-        for (int i = 0; i < days.length; i++) {
-            trends.add(DashboardResponse.StudyTrend.builder()
-                    .date(LocalDateTime.now().minusDays(6 - i).toLocalDate().toString())
-                    .dayOfWeek(days[i])
-                    .studyHours(hours[i])
-                    .questionCount(i + 3)
-                    .build());
+        if ("month".equals(timeRange)) {
+            // 本月数据 - 30天
+            String[] days = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", 
+                           "11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+                           "21", "22", "23", "24", "25", "26", "27", "28", "29", "30"};
+            double[] hours = {1.5, 2.0, 1.8, 3.2, 2.5, 4.0, 3.5, 2.2, 1.9, 3.8,
+                            4.5, 3.2, 2.8, 3.6, 4.2, 3.9, 2.5, 3.1, 4.8, 3.5,
+                            2.7, 4.1, 3.3, 2.9, 5.2, 4.6, 3.4, 2.8, 4.0, 3.7};
+            
+            for (int i = 0; i < Math.min(days.length, hours.length); i++) {
+                trends.add(DashboardResponse.StudyTrend.builder()
+                        .date(LocalDateTime.now().minusDays(29 - i).toLocalDate().toString())
+                        .dayOfWeek(days[i])
+                        .studyHours(hours[i])
+                        .questionCount(i % 5 + 2)
+                        .build());
+            }
+        } else {
+            // 本周数据 - 7天
+            String[] days = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+            double[] hours = {2.5, 4.0, 3.2, 5.5, 3.8, 6.0, 4.5};
+            
+            for (int i = 0; i < days.length; i++) {
+                trends.add(DashboardResponse.StudyTrend.builder()
+                        .date(LocalDateTime.now().minusDays(6 - i).toLocalDate().toString())
+                        .dayOfWeek(days[i])
+                        .studyHours(hours[i])
+                        .questionCount(i + 3)
+                        .build());
+            }
         }
         
         return trends;
@@ -269,28 +302,70 @@ public class DashboardServiceImpl implements DashboardService {
         List<DashboardCard> cards = dashboardCardMapper.selectList(wrapper);
 
         return cards.stream()
-                .map(this::convertToDashboardCardResponse)
+                .map(card -> DashboardResponse.DashboardCard.builder()
+                        .id(card.getId())
+                        .title(card.getTitle())
+                        .query(card.getQuery())
+                        .content(card.getContent())
+                        .refreshInterval(card.getRefreshInterval())
+                        .cardOrder(card.getCardOrder())
+                        .createTime(card.getCreateTime())
+                        .updateTime(card.getUpdateTime())
+                        .build())
                 .collect(Collectors.toList());
     }
 
     /**
-     * 转换自定义卡片实体为响应对象
+     * 构建待完成问卷列表
+     * 查询已发布且未提交的问卷
      */
-    private DashboardResponse.DashboardCard convertToDashboardCardResponse(DashboardCard card) {
-        return DashboardResponse.DashboardCard.builder()
-                .id(card.getId())
-                .title(card.getTitle())
-                .query(card.getQuery())
-                .content(card.getContent())
-                .refreshInterval(card.getRefreshInterval())
-                .cardOrder(card.getCardOrder())
-                .createTime(card.getCreateTime())
-                .updateTime(card.getUpdateTime())
-                .build();
+    private List<DashboardResponse.PendingQuestionnaire> buildPendingQuestionnaires(Long studentId) {
+        try {
+            // 1. 查询所有已发布且未截止的问卷
+            LambdaQueryWrapper<Questionnaire> questionnaireWrapper = new LambdaQueryWrapper<>();
+            questionnaireWrapper.eq(Questionnaire::getStatus, "PUBLISHED")
+                    .gt(Questionnaire::getDeadline, LocalDateTime.now())
+                    .orderByAsc(Questionnaire::getDeadline);
+            
+            List<Questionnaire> allQuestionnaires = questionnaireMapper.selectList(questionnaireWrapper);
+            
+            // 2. 查询学生已提交的问卷ID
+            LambdaQueryWrapper<QuestionnaireSubmission> submissionWrapper = new LambdaQueryWrapper<>();
+            submissionWrapper.eq(QuestionnaireSubmission::getStudentId, studentId);
+            List<QuestionnaireSubmission> submissions = questionnaireSubmissionMapper.selectList(submissionWrapper);
+            List<Long> submittedIds = submissions.stream()
+                    .map(QuestionnaireSubmission::getQuestionnaireId)
+                    .collect(Collectors.toList());
+            
+            // 3. 过滤出未提交的问卷
+            LocalDateTime now = LocalDateTime.now();
+            return allQuestionnaires.stream()
+                    .filter(q -> !submittedIds.contains(q.getId()))
+                    .map(q -> {
+                        // 计算是否紧急（距离截止时间小于24小时）
+                        long hoursUntilDeadline = ChronoUnit.HOURS.between(now, q.getDeadline());
+                        boolean isUrgent = hoursUntilDeadline <= 24;
+                        
+                        return DashboardResponse.PendingQuestionnaire.builder()
+                                .id(q.getId())
+                                .title(q.getTitle())
+                                .description(q.getDescription())
+                                .deadline(q.getDeadline())
+                                .isUrgent(isUrgent)
+                                .totalScore(q.getTotalScore())
+                                .timeLimit(q.getTimeLimit())
+                                .build();
+                    })
+                    .collect(Collectors.toList());
+                    
+        } catch (Exception e) {
+            log.error("查询待完成问卷失败, studentId={}", studentId, e);
+            return Collections.emptyList();
+        }
     }
 
     /**
-     * 构建空的看板数据
+     * 构建空的看板数据（当学生信息不存在时）
      */
     private DashboardResponse buildEmptyDashboard() {
         return DashboardResponse.builder()
@@ -318,7 +393,10 @@ public class DashboardServiceImpl implements DashboardService {
             card.setQuery(request.getQuery());
             card.setRefreshInterval(request.getRefreshInterval());
             card.setCardOrder(request.getCardOrder());
-            card.setContent(null); // 初始内容为空，后续可以通过AI生成
+            
+            // 生成模拟内容（真实场景应该调用AI服务解析query并查询数据）
+            String mockContent = generateMockCardContent(request.getQuery());
+            card.setContent(mockContent);
 
             // 保存到数据库
             dashboardCardMapper.insert(card);
@@ -329,6 +407,62 @@ public class DashboardServiceImpl implements DashboardService {
         } catch (Exception e) {
             log.error("添加自定义卡片失败, userId={}, title={}", userId, request.getTitle(), e);
             throw new BusinessException(500, "添加卡片失败：" + e.getMessage());
+        }
+    }
+    
+    /**
+     * 生成模拟卡片内容（演示用）
+     * 真实场景应该：
+     * 1. 调用AI服务理解用户查询
+     * 2. 根据AI返回的查询计划执行对应的数据库查询
+     * 3. 将查询结果格式化为JSON返回
+     */
+    private String generateMockCardContent(String query) {
+        // 根据查询内容生成不同的模拟数据
+        if (query.contains("知识点") || query.contains("薄弱")) {
+            return "{\n" +
+                   "  \"type\": \"knowledge_points\",\n" +
+                   "  \"data\": [\n" +
+                   "    {\"name\": \"虚拟内存管理\", \"proficiency\": 0.42, \"wrongCount\": 6},\n" +
+                   "    {\"name\": \"进程调度算法\", \"proficiency\": 0.55, \"wrongCount\": 4},\n" +
+                   "    {\"name\": \"文件系统实现\", \"proficiency\": 0.61, \"wrongCount\": 3}\n" +
+                   "  ]\n" +
+                   "}";
+        } else if (query.contains("学习时长") || query.contains("学习时间")) {
+            return "{\n" +
+                   "  \"type\": \"study_time\",\n" +
+                   "  \"data\": {\n" +
+                   "    \"totalHours\": 28.5,\n" +
+                   "    \"weeklyAverage\": 4.1,\n" +
+                   "    \"trend\": \"上升\"\n" +
+                   "  }\n" +
+                   "}";
+        } else if (query.contains("成绩") || query.contains("分数")) {
+            return "{\n" +
+                   "  \"type\": \"scores\",\n" +
+                   "  \"data\": {\n" +
+                   "    \"average\": 85.6,\n" +
+                   "    \"highest\": 95.0,\n" +
+                   "    \"lowest\": 72.0,\n" +
+                   "    \"rank\": \"Top 15%\"\n" +
+                   "  }\n" +
+                   "}";
+        } else if (query.contains("资料") || query.contains("推荐")) {
+            return "{\n" +
+                   "  \"type\": \"materials\",\n" +
+                   "  \"data\": [\n" +
+                   "    {\"title\": \"操作系统原理.pdf\", \"downloadCount\": 245},\n" +
+                   "    {\"title\": \"进程管理详解.docx\", \"downloadCount\": 189},\n" +
+                   "    {\"title\": \"内存管理习题集.pdf\", \"downloadCount\": 156}\n" +
+                   "  ]\n" +
+                   "}";
+        } else {
+            return "{\n" +
+                   "  \"type\": \"custom\",\n" +
+                   "  \"message\": \"数据已生成\",\n" +
+                   "  \"query\": \"" + query + "\",\n" +
+                   "  \"timestamp\": \"" + LocalDateTime.now() + "\"\n" +
+                   "}";
         }
     }
 
@@ -436,11 +570,13 @@ public class DashboardServiceImpl implements DashboardService {
                 throw new BusinessException(403, "无权刷新该卡片");
             }
 
-            // TODO: 这里应该根据卡片的query重新生成content
-            // 1. 使用AI分析query
-            // 2. 生成并执行数据库查询
-            // 3. 格式化结果并更新content字段
-            // 当前仅返回现有数据
+            // 重新生成卡片内容
+            String newContent = generateMockCardContent(card.getQuery());
+            card.setContent(newContent);
+            card.setUpdateTime(LocalDateTime.now());
+            
+            // 更新数据库
+            dashboardCardMapper.updateById(card);
 
             log.info("成功刷新卡片数据, userId={}, cardId={}", userId, cardId);
             return convertToCardResponse(card);

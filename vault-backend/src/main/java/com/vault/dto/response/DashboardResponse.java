@@ -151,6 +151,13 @@ public class DashboardResponse {
     private CurrentLearningProgress currentLearningProgress;
 
     /**
+     * 待完成问卷列表
+     * 显示学生尚未提交的问卷/作业
+     * 数据来源：questionnaires表 - 状态为PUBLISHED且截止时间未到的问卷
+     */
+    private List<PendingQuestionnaire> pendingQuestionnaires;
+
+    /**
      * 基本统计信息
      */
     @Data
@@ -778,5 +785,49 @@ public class DashboardResponse {
          * 进度百分比
          */
         private Integer progress;
+    }
+
+    /**
+     * 待完成问卷
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PendingQuestionnaire {
+        /**
+         * 问卷ID
+         */
+        private Long id;
+
+        /**
+         * 问卷标题
+         */
+        private String title;
+
+        /**
+         * 问卷描述
+         */
+        private String description;
+
+        /**
+         * 截止时间
+         */
+        private LocalDateTime deadline;
+
+        /**
+         * 是否紧急（距离截止时间小于24小时）
+         */
+        private Boolean isUrgent;
+
+        /**
+         * 总分
+         */
+        private BigDecimal totalScore;
+
+        /**
+         * 时间限制（分钟）
+         */
+        private Integer timeLimit;
     }
 }
