@@ -4,10 +4,11 @@
 
 ---
 
-## 一、前置条件
+## 一、前置条件（看看就好，没啥用）
 
 - 本系统已全部推送到：<https://github.com/XXYoLoong/Intent-Driven-Retrieval-Workflow-Decision-System.git>
-- 项目经理仓库：<https://gitee.com/hold-ryue-in-hand/Vault>
+- 项目总仓库(yoloong_develop分支)：https://github.com/GalacticaAgent/Vault.git
+- 项目经理**莫名其妙的**仓库：<https://gitee.com/hold-ryue-in-hand/Vault>（最后我发现没有给我加入仓库）
 - 本地当前在**本系统**的 `main` 分支，尚未连接 Vault 仓库
 
 ---
